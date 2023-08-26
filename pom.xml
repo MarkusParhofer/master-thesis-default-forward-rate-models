@@ -1,0 +1,126 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>info.quantlab</groupId>
+  <artifactId>master-thesis-defaultable-forward-rate-models</artifactId>
+  <version>0.0.1-SNAPSHOT</version>
+  <name>Master Thesis - Defaultable Forward Rate Models and Valuation of Loans with Behavioral Aspects</name>
+  
+  <properties>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+		<junit.jupiter.version>5.6.2</junit.jupiter.version>
+		<finmath-lib.version>6.0.1</finmath-lib.version>
+		<finmath-plot.version>0.4.5</finmath-plot.version>
+		<!-- maven plugins -->
+		<compiler-plugin.version>3.8.1</compiler-plugin.version>
+		<maven.javadoc-plugin.version>3.3.2</maven.javadoc-plugin.version>
+  </properties>
+  
+  <build>
+  	<plugins>
+  		<plugin>
+  			<groupId>org.apache.maven.plugins</groupId>
+  			<artifactId>maven-compiler-plugin</artifactId>
+  			<version>${compiler-plugin.version}</version>
+  		</plugin>
+  		<plugin>
+				<artifactId>maven-surefire-plugin</artifactId>
+				<version>2.22.2</version>
+			</plugin>
+
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-checkstyle-plugin</artifactId>
+				<version>3.1.2</version>
+				<configuration>
+					<configLocation>finmath-checkstyle.xml</configLocation>
+					<encoding>UTF-8</encoding>
+					<consoleOutput>true</consoleOutput>
+					<failsOnError>true</failsOnError>
+					<linkXRef>false</linkXRef>
+				</configuration>
+				<executions>
+					<execution>
+						<id>validate</id>
+						<phase>validate</phase>
+						<goals>
+							<goal>check</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+  	</plugins>
+  	
+  	<pluginManagement>
+			<plugins>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-javadoc-plugin</artifactId>
+					<version>${maven.javadoc-plugin.version}</version>
+					<configuration>
+						<source>${envSource}</source>
+						<doctitle>${project.name} (${project.version}) documentation</doctitle>
+						<docfilessubdirs>true</docfilessubdirs>
+						<header>
+				   			<![CDATA[
+							<script type="text/javascript" id="MathJax-script" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js">
+							</script>
+  				   			]]>
+						</header>
+						<links>
+							<!-- links not compatible with JMPA -->
+							<!-- <link>http://commons.apache.org/proper/commons-math/javadocs/api-3.6.1/</link> -->
+							<!-- <link>http://commons.apache.org/proper/commons-lang/javadocs/api-release/</link> -->
+						</links>
+						<detectLinks>false</detectLinks>
+						<additionalOptions>
+							<additionalOption>--allow-script-in-comments</additionalOption>
+						</additionalOptions>
+					</configuration>
+					<executions>
+						<execution>
+							<id>attach-javadocs</id>
+							<goals>
+								<goal>jar</goal>
+							</goals>
+						</execution>
+					</executions>
+				</plugin>
+			</plugins>
+		</pluginManagement>
+		
+	
+  	
+  </build>
+  <dependencies>
+  	<dependency>
+  		<groupId>net.finmath</groupId>
+  		<artifactId>finmath-lib</artifactId>
+  		<version>${finmath-lib.version}</version>
+  	</dependency>
+  	<dependency>
+  		<groupId>net.finmath</groupId>
+  		<artifactId>finmath-lib-plot-extensions</artifactId>
+  		<version>${finmath-plot.version}</version>
+  	</dependency>
+  	<dependency>
+  		<groupId>org.apache.commons</groupId>
+  		<artifactId>commons-math3</artifactId>
+  		<version>3.6.1</version>
+  	</dependency>
+  	<dependency>
+  		<groupId>org.apache.commons</groupId>
+  		<artifactId>commons-lang3</artifactId>
+  		<version>3.10</version>
+  	</dependency>
+  	<dependency>
+  		<groupId>org.apache.commons</groupId>
+  		<artifactId>commons-csv</artifactId>
+  		<version>1.4</version>
+  	</dependency>
+  	<dependency>
+  		<groupId>org.junit.jupiter</groupId>
+  		<artifactId>junit-jupiter</artifactId>
+  		<version>${junit.jupiter.version}</version>
+  	</dependency>
+  </dependencies>
+</project>
