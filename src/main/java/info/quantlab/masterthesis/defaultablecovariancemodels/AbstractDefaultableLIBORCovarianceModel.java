@@ -1,7 +1,7 @@
 /**
  * 
  */
-package info.quantlab.masterthesis.guaranteedpositivespread;
+package info.quantlab.masterthesis.defaultablecovariancemodels;
 
 import java.util.Map;
 
