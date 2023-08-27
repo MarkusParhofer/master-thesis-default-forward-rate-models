@@ -1,4 +1,4 @@
-package info.quantlab.masterthesis.guaranteedpositivespread;
+package info.quantlab.masterthesis.defaultablelibormodels;
 
 import net.finmath.montecarlo.interestrate.LIBORMarketModel;
 import net.finmath.stochastic.RandomVariable;

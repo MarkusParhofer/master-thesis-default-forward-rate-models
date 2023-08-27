@@ -1,7 +1,7 @@
 /**
  * 
  */
-package info.quantlab.masterthesis.guaranteedpositivespread;
+package info.quantlab.masterthesis.defaultablelibormodels;
 
 import java.time.LocalDateTime;
 import java.util.Arrays;

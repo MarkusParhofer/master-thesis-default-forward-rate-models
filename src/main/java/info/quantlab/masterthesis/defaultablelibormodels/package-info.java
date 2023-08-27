@@ -5,4 +5,4 @@
  * @author Christian Fries
  * @author Markus Parhofer
  */
-package info.quantlab.masterthesis.guaranteedpositivespread;
+package info.quantlab.masterthesis.defaultablelibormodels;
