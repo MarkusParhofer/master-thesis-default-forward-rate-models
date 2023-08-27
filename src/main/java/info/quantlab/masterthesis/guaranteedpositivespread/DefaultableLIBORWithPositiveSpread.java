@@ -188,8 +188,8 @@ public class DefaultableLIBORWithPositiveSpread extends AbstractProcessModel imp
 	
 	@Override
 	public DiscountCurve getDiscountCurve() {
-		// TODO Auto-generated method stub
-		return null;
+		// Same Discount curve as Non-Defaultable model
+		return _underlyingLIBORModel.getDiscountCurve();
 	}
 	
 	@Override
@@ -231,7 +231,7 @@ public class DefaultableLIBORWithPositiveSpread extends AbstractProcessModel imp
 	@Override
 	public RandomVariable applyStateSpaceTransform(MonteCarloProcess process, int timeIndex, int componentIndex,
 			RandomVariable randomVariable) {
-		return randomVariable.exp();
+		return randomVariable;
 	}
 	
 	@Override
