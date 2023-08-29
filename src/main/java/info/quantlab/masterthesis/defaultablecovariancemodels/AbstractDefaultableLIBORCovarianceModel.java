@@ -3,23 +3,15 @@
  */
 package info.quantlab.masterthesis.defaultablecovariancemodels;
 
-import java.util.Map;
-
-import net.finmath.exception.CalculationException;
-import net.finmath.montecarlo.RandomVariableFactory;
-import net.finmath.montecarlo.RandomVariableFromArrayFactory;
 import net.finmath.montecarlo.interestrate.LIBORMarketModel;
-import net.finmath.montecarlo.interestrate.models.covariance.AbstractLIBORCovarianceModelParametric;
-import net.finmath.montecarlo.interestrate.models.covariance.LIBORCovarianceModel;
 import net.finmath.stochastic.RandomVariable;
-import net.finmath.time.TimeDiscretization;
 
 /**
  * The abstract class for the implementation of a Covariance Model for defaultable LIBOR Market Models.
  * 
  * @author Markus Parhofer
  */
-public abstract class AbstractDefaultableLIBORCovarianceModel implements LIBORCovarianceModel {
+public abstract class AbstractDefaultableLIBORCovarianceModel implements DefaultableLIBORCovarianceModel {
 	
 	private final LIBORMarketModel _underlyingUndefaultableModel;
 	
@@ -32,41 +24,36 @@ public abstract class AbstractDefaultableLIBORCovarianceModel implements LIBORCo
 	}
 
 	@Override
-	public	RandomVariable[] getFactorLoading(final double time, final double component, final RandomVariable[] realizationAtTimeIndex) {
+	public	RandomVariable[] getFactorLoading(final double time, final double component, RandomVariable[] defaultableRealization, RandomVariable[] undefaultableRealization) {
 		int componentIndex = getLiborPeriodDiscretization().getTimeIndex(component);
 		if(componentIndex < 0) {
 			componentIndex = -componentIndex - 2;
 		}
-		return getFactorLoading(time, componentIndex, realizationAtTimeIndex);
+		return getFactorLoading(time, componentIndex, defaultableRealization, undefaultableRealization);
 	}
 
 	@Override
-	public	RandomVariable[] getFactorLoading(final double time, final int component, final RandomVariable[] realizationAtTimeIndex) {
+	public	RandomVariable[] getFactorLoading(final double time, final int component, RandomVariable[] defaultableRealization, RandomVariable[] undefaultableRealization) {
 		int timeIndex = getTimeDiscretization().getTimeIndex(time);
 		if(timeIndex < 0) {
 			timeIndex = -timeIndex - 2;
 		}
-		return getFactorLoading(timeIndex, component, realizationAtTimeIndex);
+		return getFactorLoading(timeIndex, component, defaultableRealization, undefaultableRealization);
 	}
 
 	@Override
-	public RandomVariable getFactorLoadingPseudoInverse(int timeIndex, int component, int factor, RandomVariable[] realizationAtTimeIndex) {
-		throw new UnsupportedOperationException();
-	}
-
-	@Override
-	public RandomVariable getCovariance(double time, int component1, int component2, RandomVariable[] realizationAtTimeIndex) {
+	public RandomVariable getCovariance(double time, int component1, int component2, RandomVariable[] defaultableRealization, RandomVariable[] undefaultableRealization) {
 		int timeIndex = getTimeDiscretization().getTimeIndex(time);
 		if(timeIndex < 0) {
 			timeIndex = -timeIndex - 2;
 		}
-		return getCovariance(timeIndex, component1, component2, realizationAtTimeIndex);
+		return getCovariance(timeIndex, component1, component2, defaultableRealization, undefaultableRealization);
 	}
 
 	@Override
-	public RandomVariable getCovariance(int timeIndex, int component1, int component2, RandomVariable[] realizationAtTimeIndex) {
-		final RandomVariable[] factorLoadingC1 = getFactorLoading(timeIndex, component1, realizationAtTimeIndex);
-		final RandomVariable[] factorLoadingC2 = getFactorLoading(timeIndex, component2, realizationAtTimeIndex);
+	public RandomVariable getCovariance(int timeIndex, int component1, int component2, RandomVariable[] defaultableRealization, RandomVariable[] undefaultableRealization) {
+		final RandomVariable[] factorLoadingC1 = getFactorLoading(timeIndex, component1, defaultableRealization, undefaultableRealization);
+		final RandomVariable[] factorLoadingC2 = getFactorLoading(timeIndex, component2, defaultableRealization, undefaultableRealization);
 		
 		RandomVariable covariance = factorLoadingC1[0].mult(factorLoadingC2[0]);
 		for(int factor = 1; factor < getNumberOfFactors(); factor++) {
@@ -75,17 +62,8 @@ public abstract class AbstractDefaultableLIBORCovarianceModel implements LIBORCo
 		
 		return covariance;
 	}
-
-	/**
-	 * Gets the number of factors (i.e. the number of Factor Loadings per component).
-	 * @return Number of Factors
-	 */
-	public abstract int getNumberOfFactors();
 	
-	/**
-	 * Gets the underlying undefaultable Model. Hence a reference LIBOR Market Model.
-	 * @return Undefaultable LIBOR Market Model
-	 */
+	@Override
 	public LIBORMarketModel getUnderlyingUndefaultableModel() {
 		return _underlyingUndefaultableModel;
 	}

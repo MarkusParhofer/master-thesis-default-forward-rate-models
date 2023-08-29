@@ -8,6 +8,7 @@ import java.util.Arrays;
 import java.util.Map;
 
 import info.quantlab.masterthesis.defaultablecovariancemodels.AbstractDefaultableLIBORCovarianceModel;
+import info.quantlab.masterthesis.defaultablecovariancemodels.DefaultableLIBORCovarianceModel;
 import net.finmath.exception.CalculationException;
 import net.finmath.marketdata.model.AnalyticModel;
 import net.finmath.marketdata.model.curves.DiscountCurve;
@@ -39,7 +40,7 @@ public class DefaultableLIBORWithPositiveSpread extends AbstractProcessModel imp
 	
 	private final LIBORMarketModel 	_underlyingLIBORModel;
 	private final ForwardCurve 		_initialCurve;
-	private final AbstractDefaultableLIBORCovarianceModel _covarianceModel;
+	private final DefaultableLIBORCovarianceModel _covarianceModel;
 	private final Measure _measure;
 	
 	private final RandomVariableFactory	randomVariableFactory = new RandomVariableFromArrayFactory();
@@ -47,7 +48,7 @@ public class DefaultableLIBORWithPositiveSpread extends AbstractProcessModel imp
 	/**
 	 * 
 	 */
-	public DefaultableLIBORWithPositiveSpread(LIBORMarketModel underlyingLIBORModel, ForwardCurve initialCurve, AbstractDefaultableLIBORCovarianceModel covarianceModel, Measure measure) {
+	public DefaultableLIBORWithPositiveSpread(LIBORMarketModel underlyingLIBORModel, ForwardCurve initialCurve, DefaultableLIBORCovarianceModel covarianceModel, Measure measure) {
 		_underlyingLIBORModel = underlyingLIBORModel;
 		_initialCurve = initialCurve;
 		_covarianceModel = covarianceModel;
@@ -246,25 +247,12 @@ public class DefaultableLIBORWithPositiveSpread extends AbstractProcessModel imp
 	}
 
 	@Override
-	public LIBORCovarianceModel getCovarianceModel() {
+	public DefaultableLIBORCovarianceModel getCovarianceModel() {
 		return _covarianceModel;
 	}
 
 	@Override
-	public LIBORMarketModel getCloneWithModifiedCovarianceModel(LIBORCovarianceModel calibrationCovarianceModel) {
-		AbstractDefaultableLIBORCovarianceModel  castedCovarianceModel = null;
-		try {
-			castedCovarianceModel = (AbstractDefaultableLIBORCovarianceModel)calibrationCovarianceModel;
-		}
-		catch(final Exception e) {
-			throw new ClassCastException("The new Covariance Model must be of type AbstractDefaultableLIBORCovarianceModel.");
-		}
-		return new DefaultableLIBORWithPositiveSpread(_underlyingLIBORModel, _initialCurve, castedCovarianceModel, _measure);
-	}
-
-	@Override
-	public double[][][] getIntegratedLIBORCovariance(TimeDiscretization timeDiscretization) {
-		// TODO Auto-generated method stub
-		return null;
+	public DefaultableLIBORMarketModel getCloneWithModifiedCovarianceModel(DefaultableLIBORCovarianceModel newCovarianceModel) {
+		return new DefaultableLIBORWithPositiveSpread(_underlyingLIBORModel, _initialCurve, newCovarianceModel, _measure);
 	}
 }
