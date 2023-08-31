@@ -3,6 +3,7 @@ package info.quantlab.masterthesis.defaultablelibormodels;
 import info.quantlab.masterthesis.defaultablecovariancemodels.DefaultableLIBORCovarianceModel;
 import net.finmath.montecarlo.interestrate.LIBORMarketModel;
 import net.finmath.montecarlo.interestrate.LIBORModel;
+import net.finmath.montecarlo.process.MonteCarloProcess;
 import net.finmath.stochastic.RandomVariable;
 /**
  * Interface for a Defaultable LIBOR Market Model.
@@ -31,7 +32,22 @@ public interface DefaultableLIBORMarketModel extends LIBORModel {
 	 * @return A new object implementing LIBORMarketModel, using the new covariance model.
 	 */
 	DefaultableLIBORMarketModel getCloneWithModifiedCovarianceModel(DefaultableLIBORCovarianceModel newCovarianceModel);
-
+	
+	/**
+	 * Create a new object implementing DefaultableLIBORMarketModel, using the new undefaultable model as underlying undefaultable Market Situation.
+	 *
+	 * @param newCovarianceModel The new covariance model.
+	 * @return A new object implementing LIBORMarketModel, using the new covariance model.
+	 */
+	DefaultableLIBORMarketModel getCloneWithModifiedUndefaultableModel(LIBORMarketModel newUndefaultableModel);
+	
+	/**
+	 * Sets the cache for the Process
+	 * @param processForUndefaultableModel
+	 */
+	void setUndefaultableProcessCache(MonteCarloProcess processForUndefaultableModel);
+	
+	MonteCarloProcess getCachedUndefaultableProcess();
 	
 	RandomVariable getSpreadAtGivenTime(final double evalTime, final int liborIndex, final double time);
 	

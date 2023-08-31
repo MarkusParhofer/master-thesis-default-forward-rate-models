@@ -68,4 +68,9 @@ public class SimpleDefaultableLIBORCovarianceWithGuaranteedPositiveSpread extend
 		return getUnderlyingUndefaultableModel().getNumberOfFactors() + _freeParameters[0].length;
 	}
 
+	@Override
+	public DefaultableLIBORCovarianceModel getCloneWithModifiedUndefaultableModel(LIBORMarketModel newUndefaultableModel) {
+		return new SimpleDefaultableLIBORCovarianceWithGuaranteedPositiveSpread(newUndefaultableModel, _freeParameters);
+	}
+
 }

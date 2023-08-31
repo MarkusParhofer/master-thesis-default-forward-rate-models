@@ -119,6 +119,13 @@ public interface DefaultableLIBORCovarianceModel {
 	int getNumberOfFactors();
 
 	/**
+	 * Returns a clone of this model where the underlying undefaultable Market Situation has changed.
+	 * @param newUndefaultableModel The new underlying Market Situation.
+	 * @return clone with modified data.
+	 */
+	DefaultableLIBORCovarianceModel getCloneWithModifiedUndefaultableModel(LIBORMarketModel newUndefaultableModel);
+	
+	/**
 	 * Returns a clone of this model where the specified properties have been modified.
 	 *
 	 * Note that there is no guarantee that a model reacts on a specification of a properties in the

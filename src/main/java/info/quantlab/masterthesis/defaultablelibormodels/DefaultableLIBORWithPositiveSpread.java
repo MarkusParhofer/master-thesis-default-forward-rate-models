@@ -45,6 +45,8 @@ public class DefaultableLIBORWithPositiveSpread extends AbstractProcessModel imp
 	
 	private final RandomVariableFactory	randomVariableFactory = new RandomVariableFromArrayFactory();
 	
+	private MonteCarloProcess _cachedUndefaultableProcess;
+	
 	/**
 	 * 
 	 */
@@ -165,9 +167,17 @@ public class DefaultableLIBORWithPositiveSpread extends AbstractProcessModel imp
 	}
 
 	@Override
-	public RandomVariable[] getFactorLoading(MonteCarloProcess process, int timeIndex, int componentIndex,
-			RandomVariable[] realizationAtTimeIndex) {
-		return _covarianceModel.getFactorLoading(timeIndex, componentIndex, realizationAtTimeIndex);
+	public RandomVariable[] getFactorLoading(MonteCarloProcess process, int timeIndex, int componentIndex, RandomVariable[] realizationAtTimeIndex) {
+		RandomVariable[] realizationsOfUndefaultableModel = new RandomVariable[getNumberOfComponents()];
+		for(int component = 0; component < getNumberOfComponents(); component++) {
+			try {
+				realizationsOfUndefaultableModel[component] = _underlyingLIBORModel.getLIBOR(getCachedUndefaultableProcess(), timeIndex, component);
+			} catch (CalculationException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+		return _covarianceModel.getFactorLoading(timeIndex, componentIndex, realizationAtTimeIndex, realizationsOfUndefaultableModel);
 	}
 
 	@Override
@@ -253,6 +263,27 @@ public class DefaultableLIBORWithPositiveSpread extends AbstractProcessModel imp
 
 	@Override
 	public DefaultableLIBORMarketModel getCloneWithModifiedCovarianceModel(DefaultableLIBORCovarianceModel newCovarianceModel) {
+		if(newCovarianceModel.getUnderlyingUndefaultableModel() != _underlyingLIBORModel) {
+			throw new IllegalArgumentException("New Covariance Model must still have the same underlying undefaultable Model");
+		}
 		return new DefaultableLIBORWithPositiveSpread(_underlyingLIBORModel, _initialCurve, newCovarianceModel, _measure);
 	}
+
+	@Override
+	public void setUndefaultableProcessCache(MonteCarloProcess processForUndefaultableModel) {
+		if(!processForUndefaultableModel.equals(_cachedUndefaultableProcess))
+			_cachedUndefaultableProcess = processForUndefaultableModel;
+	}
+
+	@Override
+	public MonteCarloProcess getCachedUndefaultableProcess() {
+		return _cachedUndefaultableProcess;
+	}
+
+	@Override
+	public DefaultableLIBORMarketModel getCloneWithModifiedUndefaultableModel(LIBORMarketModel newUndefaultableModel) {
+		DefaultableLIBORCovarianceModel newCovarianceModel = _covarianceModel.getCloneWithModifiedUndefaultableModel(newUndefaultableModel);
+		return new DefaultableLIBORWithPositiveSpread(newUndefaultableModel, _initialCurve, newCovarianceModel, _measure);
+	}
+
 }
