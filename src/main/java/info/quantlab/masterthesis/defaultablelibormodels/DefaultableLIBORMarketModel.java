@@ -41,14 +41,6 @@ public interface DefaultableLIBORMarketModel extends LIBORModel {
 	 */
 	DefaultableLIBORMarketModel getCloneWithModifiedUndefaultableModel(LIBORMarketModel newUndefaultableModel);
 	
-	/**
-	 * Sets the cache for the Process of the undefaultable LIBOR Curve.
-	 * @param processForUndefaultableModel
-	 */
-	void setUndefaultableProcessCache(MonteCarloProcess processForUndefaultableModel);
-	
-	MonteCarloProcess getCachedUndefaultableProcess();
-	
 	RandomVariable getSpreadAtGivenTime(final double evalTime, final int liborIndex, final double time);
 	
 	RandomVariable getSpreadAtGivenTimeIndex(final double evalTime, final int liborIndex, final int timeIndex);

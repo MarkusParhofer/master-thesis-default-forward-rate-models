@@ -7,8 +7,11 @@ import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.Map;
 
+import javax.management.RuntimeErrorException;
+
 import info.quantlab.masterthesis.defaultablecovariancemodels.AbstractDefaultableLIBORCovarianceModel;
 import info.quantlab.masterthesis.defaultablecovariancemodels.DefaultableLIBORCovarianceModel;
+import info.quantlab.masterthesis.defaultableliborsimulation.EulerSchemeFromDefaultableLIBORModel;
 import net.finmath.exception.CalculationException;
 import net.finmath.marketdata.model.AnalyticModel;
 import net.finmath.marketdata.model.curves.DiscountCurve;
@@ -169,11 +172,17 @@ public class DefaultableLIBORWithPositiveSpread extends AbstractProcessModel imp
 	@Override
 	public RandomVariable[] getFactorLoading(MonteCarloProcess process, int timeIndex, int componentIndex, RandomVariable[] realizationAtTimeIndex) {
 		RandomVariable[] realizationsOfUndefaultableModel = new RandomVariable[getNumberOfComponents()];
+		EulerSchemeFromDefaultableLIBORModel castedProcess;
+		try {
+			castedProcess = (EulerSchemeFromDefaultableLIBORModel)process;
+		} catch (Exception e) {
+			e.printStackTrace();
+			throw new IllegalArgumentException("process must be EulerSchemeFromDefaultableLIBORModel to get the undefaultable ProcessValues");
+		}
 		for(int component = 0; component < getNumberOfComponents(); component++) {
 			try {
-				realizationsOfUndefaultableModel[component] = _underlyingLIBORModel.getLIBOR(getCachedUndefaultableProcess(), timeIndex, component);
+				realizationsOfUndefaultableModel[component] = castedProcess.getUndefaultableProcessValue(timeIndex, componentIndex);
 			} catch (CalculationException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 		}
@@ -269,16 +278,6 @@ public class DefaultableLIBORWithPositiveSpread extends AbstractProcessModel imp
 		return new DefaultableLIBORWithPositiveSpread(_underlyingLIBORModel, _initialCurve, newCovarianceModel, _measure);
 	}
 
-	@Override
-	public void setUndefaultableProcessCache(MonteCarloProcess processForUndefaultableModel) {
-		if(!processForUndefaultableModel.equals(_cachedUndefaultableProcess))
-			_cachedUndefaultableProcess = processForUndefaultableModel;
-	}
-
-	@Override
-	public MonteCarloProcess getCachedUndefaultableProcess() {
-		return _cachedUndefaultableProcess;
-	}
 
 	@Override
 	public DefaultableLIBORMarketModel getCloneWithModifiedUndefaultableModel(LIBORMarketModel newUndefaultableModel) {
