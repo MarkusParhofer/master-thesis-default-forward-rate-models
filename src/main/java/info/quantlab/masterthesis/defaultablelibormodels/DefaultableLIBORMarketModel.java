@@ -1,6 +1,8 @@
 package info.quantlab.masterthesis.defaultablelibormodels;
 
 import info.quantlab.masterthesis.defaultablecovariancemodels.DefaultableLIBORCovarianceModel;
+import info.quantlab.masterthesis.defaultableliborsimulation.MonteCarloProcessWithDependency;
+import net.finmath.exception.CalculationException;
 import net.finmath.montecarlo.interestrate.LIBORMarketModel;
 import net.finmath.montecarlo.interestrate.LIBORModel;
 import net.finmath.montecarlo.process.MonteCarloProcess;
@@ -41,9 +43,12 @@ public interface DefaultableLIBORMarketModel extends LIBORModel {
 	 */
 	DefaultableLIBORMarketModel getCloneWithModifiedUndefaultableModel(LIBORMarketModel newUndefaultableModel);
 	
-	RandomVariable getSpreadAtGivenTime(final double evalTime, final int liborIndex, final double time);
+	default RandomVariable getLIBORSpreadAtGivenTime(MonteCarloProcessWithDependency process, final double time, final int liborIndex) throws CalculationException {
+		int timeIndex = process.getTimeIndex(time);
+		return getLIBORSpreadAtGivenTimeIndex(process, timeIndex, liborIndex);
+	}
 	
-	RandomVariable getSpreadAtGivenTimeIndex(final double evalTime, final int liborIndex, final int timeIndex);
+	RandomVariable getLIBORSpreadAtGivenTimeIndex(MonteCarloProcessWithDependency process, final int timeIndex, final int liborIndex) throws CalculationException;
 	
 	LIBORMarketModel getUnderlyingNonDefaultableModel();
 	

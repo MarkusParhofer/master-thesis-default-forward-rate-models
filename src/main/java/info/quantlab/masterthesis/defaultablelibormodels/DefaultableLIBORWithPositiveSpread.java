@@ -12,6 +12,7 @@ import javax.management.RuntimeErrorException;
 import info.quantlab.masterthesis.defaultablecovariancemodels.AbstractDefaultableLIBORCovarianceModel;
 import info.quantlab.masterthesis.defaultablecovariancemodels.DefaultableLIBORCovarianceModel;
 import info.quantlab.masterthesis.defaultableliborsimulation.EulerSchemeFromDefaultableLIBORModel;
+import info.quantlab.masterthesis.defaultableliborsimulation.MonteCarloProcessWithDependency;
 import net.finmath.exception.CalculationException;
 import net.finmath.marketdata.model.AnalyticModel;
 import net.finmath.marketdata.model.curves.DiscountCurve;
@@ -22,6 +23,7 @@ import net.finmath.montecarlo.RandomVariableFromDoubleArray;
 import net.finmath.montecarlo.interestrate.LIBORMarketModel;
 import net.finmath.montecarlo.interestrate.LIBORModel;
 import net.finmath.montecarlo.interestrate.models.LIBORMarketModelFromCovarianceModel.Measure;
+import net.finmath.montecarlo.interestrate.models.LIBORMarketModelFromCovarianceModel.SimulationTimeInterpolationMethod;
 import net.finmath.montecarlo.interestrate.models.LIBORMarketModelFromCovarianceModel.StateSpace;
 import net.finmath.montecarlo.interestrate.models.covariance.LIBORCovarianceModel;
 import net.finmath.montecarlo.interestrate.models.covariance.LIBORCovarianceModelCalibrateable;
@@ -48,8 +50,6 @@ public class DefaultableLIBORWithPositiveSpread extends AbstractProcessModel imp
 	
 	private final RandomVariableFactory	randomVariableFactory = new RandomVariableFromArrayFactory();
 	
-	private MonteCarloProcess _cachedUndefaultableProcess;
-	
 	/**
 	 * 
 	 */
@@ -72,15 +72,42 @@ public class DefaultableLIBORWithPositiveSpread extends AbstractProcessModel imp
 		
 		final int periodStartIndex    = getLiborPeriodIndex(periodStart);
 		final int periodEndIndex      = getLiborPeriodIndex(periodEnd);
-		
+
+		// If time is beyond fixing, use the fixing time.
 		time = Math.min(time, periodStart);
-		int timeIndex = process.getTimeIndex(time);
-		
-		if(periodStartIndex == periodEndIndex - 1)
+		int timeIndex           = process.getTimeIndex(time);
+		// If time is not part of the discretization, use the nearest available point.
+		if(timeIndex < 0) {
+			timeIndex = -timeIndex-2;
+			// For now this will always get the timeIndex lower than the time
+		}
+
+		// The forward rates are provided on fractional tenor discretization points using linear interpolation. See ISBN 0470047224.
+		// TODO: Implement Interpolation
+		if(periodStartIndex < 0 || periodEndIndex < 0) {
+			throw new AssertionError("LIBOR requested outside libor discretization points and interpolation was not performed.");
+		}
+
+		// If this is a model primitive then return it
+		if(periodStartIndex+1 == periodEndIndex) {
 			return getLIBOR(process, timeIndex, periodStartIndex);
-		
-		// TODO Auto-generated method stub
-		return null;
+		}
+
+		// The requested LIBOR is not a model primitive. We need to calculate it (slow!)
+		RandomVariable accrualAccount = null;
+
+		// Calculate the value of the forward bond
+		for(int periodIndex = periodStartIndex; periodIndex<periodEndIndex; periodIndex++)
+		{
+			final double subPeriodLength = getLiborPeriod(periodIndex+1) - getLiborPeriod(periodIndex);
+			final RandomVariable liborOverSubPeriod = getLIBOR(process, timeIndex, periodIndex);
+
+			accrualAccount = accrualAccount == null ? liborOverSubPeriod.mult(subPeriodLength).add(1.0) : accrualAccount.accrue(liborOverSubPeriod, subPeriodLength);
+		}
+
+		final RandomVariable libor = accrualAccount.sub(1.0).div(periodEnd - periodStart);
+
+		return libor;
 	}
 
 	@Override
@@ -155,11 +182,11 @@ public class DefaultableLIBORWithPositiveSpread extends AbstractProcessModel imp
 				RandomVariable			oneStepMeasureTransform = Scalar.of(-periodLength).discount(forwardRate, periodLength);
 
 				final RandomVariable[]	factorLoading   	= getFactorLoading(process, timeIndex, componentIndex, realizationAtTimeIndex);
+				drift[componentIndex] = drift[componentIndex].addSumProduct(factorLoadingsSums, factorLoading);
 				
 				for(int factorIndex=0; factorIndex<factorLoading.length; factorIndex++) {
 					factorLoadingsSums[factorIndex] = factorLoadingsSums[factorIndex].addProduct(oneStepMeasureTransform, factorLoading[factorIndex]);
 				}
-				drift[componentIndex] = drift[componentIndex].addSumProduct(factorLoadingsSums, factorLoading);
 			}
 		}
 		else {
@@ -172,16 +199,16 @@ public class DefaultableLIBORWithPositiveSpread extends AbstractProcessModel imp
 	@Override
 	public RandomVariable[] getFactorLoading(MonteCarloProcess process, int timeIndex, int componentIndex, RandomVariable[] realizationAtTimeIndex) {
 		RandomVariable[] realizationsOfUndefaultableModel = new RandomVariable[getNumberOfComponents()];
-		EulerSchemeFromDefaultableLIBORModel castedProcess;
+		MonteCarloProcessWithDependency castedProcess;
 		try {
-			castedProcess = (EulerSchemeFromDefaultableLIBORModel)process;
+			castedProcess = (MonteCarloProcessWithDependency)process;
 		} catch (Exception e) {
 			e.printStackTrace();
-			throw new IllegalArgumentException("process must be EulerSchemeFromDefaultableLIBORModel to get the undefaultable ProcessValues");
+			throw new IllegalArgumentException("process must be MonteCarloProcessWithDependency to get the undefaultable ProcessValues");
 		}
 		for(int component = 0; component < getNumberOfComponents(); component++) {
 			try {
-				realizationsOfUndefaultableModel[component] = castedProcess.getUndefaultableProcessValue(timeIndex, componentIndex);
+				realizationsOfUndefaultableModel[component] = castedProcess.getDependencyProcessValue(timeIndex, componentIndex);
 			} catch (CalculationException e) {
 				e.printStackTrace();
 			}
@@ -190,15 +217,8 @@ public class DefaultableLIBORWithPositiveSpread extends AbstractProcessModel imp
 	}
 
 	@Override
-	public RandomVariable getSpreadAtGivenTime(double evalTime, int liborIndex, double time) {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	@Override
-	public RandomVariable getSpreadAtGivenTimeIndex(double evalTime, int liborIndex, int timeIndex) {
-		// TODO Auto-generated method stub
-		return null;
+	public RandomVariable getLIBORSpreadAtGivenTimeIndex(MonteCarloProcessWithDependency process, int timeIndex, int liborIndex) throws CalculationException {
+		return getLIBOR(process, timeIndex, liborIndex).sub(process.getDependencyProcessValue(timeIndex, liborIndex));
 	}
 	
 	@Override
@@ -246,7 +266,7 @@ public class DefaultableLIBORWithPositiveSpread extends AbstractProcessModel imp
 	@Override
 	public LIBORModel getCloneWithModifiedData(Map<String, Object> dataModified) throws CalculationException {
 		// TODO Auto-generated method stub
-		return null;
+		throw new UnsupportedOperationException("Method not yet im of statespace transform not set");
 	}
 	
 	@Override
@@ -284,5 +304,7 @@ public class DefaultableLIBORWithPositiveSpread extends AbstractProcessModel imp
 		DefaultableLIBORCovarianceModel newCovarianceModel = _covarianceModel.getCloneWithModifiedUndefaultableModel(newUndefaultableModel);
 		return new DefaultableLIBORWithPositiveSpread(newUndefaultableModel, _initialCurve, newCovarianceModel, _measure);
 	}
+
+	
 
 }
