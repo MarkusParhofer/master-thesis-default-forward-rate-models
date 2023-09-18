@@ -137,7 +137,14 @@ public class DefaultableLIBORWithPositiveSpread extends AbstractProcessModel imp
 	@Override
 	public RandomVariable getNumeraire(MonteCarloProcess process, double time) throws CalculationException {
 		// Same Numeraire as underlying non defaultable model
-		return _underlyingLIBORModel.getNumeraire(process, time);
+		MonteCarloProcessWithDependency castedProcess;
+		try {
+			castedProcess = (MonteCarloProcessWithDependency)process;
+		} catch (Exception e) {
+			e.printStackTrace();
+			throw new IllegalArgumentException("process must be of type MonteCarloProcessWithDependency to get the undefaultable process values.");
+		}
+		return _underlyingLIBORModel.getNumeraire(castedProcess.getDependencyProcess(), time);
 	}
 
 	@Override
