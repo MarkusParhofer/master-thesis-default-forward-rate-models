@@ -4,7 +4,9 @@
 package info.quantlab.easyplot;
 import java.awt.BasicStroke;
 import java.awt.Color;
+import java.awt.Polygon;
 import java.awt.Rectangle;
+import java.awt.Shape;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -12,6 +14,9 @@ import java.util.function.DoubleUnaryOperator;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
+import org.jfree.chart.plot.DefaultDrawingSupplier;
+import org.jfree.chart.plot.DrawingSupplier;
 
 import net.finmath.plots.GraphStyle;
 import net.finmath.plots.Named;
@@ -28,17 +33,25 @@ import net.finmath.plots.PlotablePoints2D;
  */
 public class EasyPlot2D extends Plot2D {
 
-	private List<Plotable2D> plotables;
+	private static DrawingSupplier staticDrawingSupplier = new DefaultDrawingSupplier();
 	
+	private DrawingSupplier unstaticDrawingSupplier;
+	
+	private List<Plotable2D> plotables;
 	
 	// Multiple Plots
 	public EasyPlot2D(final List<Plotable2D> plotables) {
 		super(plotables);
 		this.plotables = plotables;
+		unstaticDrawingSupplier = staticDrawingSupplier;
+		staticDrawingSupplier = new DefaultDrawingSupplier();
 	}
 	
 	public EasyPlot2D(final double xmin, final double xmax, final int numberOfPointsX, final List<Named<DoubleUnaryOperator>> doubleUnaryOperators) {
-		this(doubleUnaryOperators.stream().map(namedFunction -> { return new PlotableFunction2D(xmin, xmax, numberOfPointsX, namedFunction, null); }).collect(Collectors.toList()));
+		this(doubleUnaryOperators.stream().map(namedFunction -> 
+		{ return new PlotableFunction2D(xmin, xmax, numberOfPointsX, namedFunction, 
+				getDefaultGraphStyle(doubleUnaryOperators.indexOf(namedFunction), true, staticDrawingSupplier)); })
+				.collect(Collectors.toList()));
 	}
 
 	public EasyPlot2D(final double xmin, final double xmax, final int numberOfPointsX, final DoubleUnaryOperator[] doubleUnaryOperators) {
@@ -58,7 +71,7 @@ public class EasyPlot2D extends Plot2D {
 	}
 	
 	public EasyPlot2D(final double xmin, final double xmax, final int numberOfPointsX, final Named<DoubleUnaryOperator> function) {
-		this(new PlotableFunction2D(xmin, xmax, numberOfPointsX, function, null));
+		this(new PlotableFunction2D(xmin, xmax, numberOfPointsX, function, getDefaultGraphStyle(0, true, staticDrawingSupplier)));
 	}
 	
 	public EasyPlot2D(final double xmin, final double xmax, final int numberOfPointsX, final DoubleUnaryOperator function, final GraphStyle style) {
@@ -85,11 +98,11 @@ public class EasyPlot2D extends Plot2D {
 	}
 	
 	public EasyPlot2D(String name, final double[] xPoints, final double[] yPoints) {
-		this(PlotablePoints2D.of(name, xPoints, yPoints, new GraphStyle(new Rectangle(2, 2), null, getDefaultColor(0))));
+		this(PlotablePoints2D.of(name, xPoints, yPoints, getDefaultGraphStyle(0, false, staticDrawingSupplier)));
 	}
 	
 	public EasyPlot2D(final double[] xPoints, final double[] yPoints) {
-		this(PlotablePoints2D.of("", xPoints, yPoints, new GraphStyle(new Rectangle(2, 2), null, getDefaultColor(0))));
+		this(PlotablePoints2D.of("", xPoints, yPoints, getDefaultGraphStyle(0, false, staticDrawingSupplier)));
 	}
 
 	public EasyPlot2D addPlot(final Plotable2D plotable) {
@@ -104,7 +117,7 @@ public class EasyPlot2D extends Plot2D {
 	}
 	
 	public EasyPlot2D addPlot(final double xmin, final double xmax, final int numberOfPointsX, final Named<DoubleUnaryOperator> function) {
-		return addPlot(new PlotableFunction2D(xmin, xmax, numberOfPointsX, function, null));
+		return addPlot(new PlotableFunction2D(xmin, xmax, numberOfPointsX, function, getDefaultGraphStyle(plotables.size(), true, unstaticDrawingSupplier)));
 	}
 	
 	@Override
@@ -121,7 +134,7 @@ public class EasyPlot2D extends Plot2D {
 		Plotable2D plotToChange = plotables.get(plotIndex);
 		
 		final boolean styleWasSet = plotToChange.getStyle() != null;
-		GraphStyle returnStyle = styleWasSet ? plotToChange.getStyle() : new GraphStyle(null, new BasicStroke(2.0f), getDefaultColor(plotIndex));
+		GraphStyle returnStyle = styleWasSet ? plotToChange.getStyle() : getDefaultGraphStyle(plotIndex, true, unstaticDrawingSupplier);
 		
 		final double xMin = plotToChange.getSeries().get(0).getX();
 		final double xMax = plotToChange.getSeries().get(plotToChange.getSeries().size() - 1).getX();
@@ -166,8 +179,8 @@ public class EasyPlot2D extends Plot2D {
 		return changePlotColor(0, newColor);
 	}
 	
-	public static Color getDefaultColor(final int functionIndex) {
-		switch (functionIndex) {
+	public static Color getDefaultColor(final int colorIndex) {
+		switch (colorIndex % 10) {
 		case 0:
 			return new java.awt.Color(0, (int)(0.4470*255), (int)(0.7410*255));
 		case 1:
@@ -191,8 +204,17 @@ public class EasyPlot2D extends Plot2D {
 		default:
 			return new java.awt.Color(0, 0,  0);
 		}
-	}
 		
+	}
+	
+	public static GraphStyle getDefaultGraphStyle(final int funcIndex, final boolean asLine, DrawingSupplier drawingSupplier) {
+		if(asLine) {
+			return new GraphStyle(drawingSupplier.getNextShape(), new BasicStroke(2.0f), getDefaultColor(funcIndex));
+		} else {
+			return new GraphStyle(drawingSupplier.getNextShape(), null, getDefaultColor(funcIndex * 10 + (((int)Math.floor(funcIndex / 10.0)) % 10)));
+		}
+	}
+	
 	public static Color getColor(final double red, final double green, final double blue) {
 		return new java.awt.Color((int)(red*255), (int)(green*255), (int)(blue*255));
 	}
