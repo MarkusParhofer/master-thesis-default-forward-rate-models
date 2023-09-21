@@ -82,6 +82,17 @@ public class DefaultableModelExperiment {
 				freeParameters[componentIndex][factor] = randomGenerator.nextDouble();
 			}
 		}
+		
+		System.out.println("\nFree Parameter Matrix:\n");
+		for(int componentIndex = 0; componentIndex < uModel.getNumberOfComponents(); componentIndex++) {
+			for(int factor = 0; factor < 3; factor++) {
+				System.out.printf("%8.6f  ", freeParameters[componentIndex][factor]);
+			}
+			System.out.println();
+		}
+		System.out.println();
+		System.out.println("_".repeat(79));
+		System.out.println();
 		DefaultableLIBORCovarianceModel myCovarianceModel = new SimpleDefaultableLIBORCovarianceWithGuaranteedPositiveSpread(uModel, freeParameters);
 		
 		// Set defaultable LIBOR model
