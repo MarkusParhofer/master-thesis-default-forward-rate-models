@@ -29,7 +29,7 @@ public class SimpleDefaultableLIBORCovarianceWithGuaranteedPositiveSpread extend
 		RandomVariable[] factorLoading = new RandomVariable[getNumberOfFactors()];
 		
 		// Calculate from underlying undefaultable Model
-		RandomVariable relationFactor = defaultableRealization[component].mult(periodLength).add(1.0).accrue(undefaultableRealization[component], periodLength);
+		RandomVariable relationFactor = defaultableRealization[component].mult(periodLength).add(1.0).discount(undefaultableRealization[component], periodLength);
 		for(int k = 0; k < undefaultableFactors; k++) {
 			factorLoading[k] = relationFactor.mult(undefaultableFactorLoading[k]);
 		}

@@ -82,6 +82,9 @@ public class DefaultableModelExperiment {
 				freeParameters[componentIndex][factor] = randomGenerator.nextDouble();
 			}
 		}
+		System.out.println("\nUndefaultable Model:\n");
+		System.out.println(uModel);
+		
 		
 		System.out.println("\nFree Parameter Matrix:\n");
 		for(int componentIndex = 0; componentIndex < uModel.getNumberOfComponents(); componentIndex++) {
