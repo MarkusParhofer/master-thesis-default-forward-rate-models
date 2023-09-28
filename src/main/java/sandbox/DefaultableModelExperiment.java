@@ -251,6 +251,66 @@ public class DefaultableModelExperiment {
 		 * Caplet from defaultableModel = cD
 		 * E[cU] = E[cD]*P(Default)
 		 */
+		
+		// -------------------- Control Area -----------------------------------------------
+		System.out.println("\n");
+		System.out.println("_".repeat(79));
+		System.out.println();
+		System.out.println("Control Area: Checking " + (liborTimes * modelTimes * numberOfPaths) + " numbers for positivity. Stay tuned!\n");
+		// double[] allSpreads = new double[liborTimes * modelTimes * numberOfPaths];
+		System.out.println("All negative Spreads:\n");
+		long counter = 0;
+		double min = 10.0, max = -10.0;
+		long minIndex = -1;
+		long maxIndex = -1;
+		for(int component=0; component < liborTimes; component++) {
+			long counterPerComponent = 0;
+			long numberPerComp = 0;
+			for(int time=0; time < modelTimes; time++) {
+				if(timeDiscretization.getTime(time) > liborPeriods.getTime(component)) {
+					System.out.printf("\n Jumped at TimeIndex: %3d, Time: %5.2f, LIBORIndex: %3d, LIBOR Time: %5.2f\n", time, timeDiscretization.getTime(time), component, liborPeriods.getTime(component));
+					numberPerComp = (long)time * (long)numberOfPaths;
+					break;
+				}
+				for(int path=0; path < numberOfPaths; path++) {
+					
+					final long index = component * modelTimes * numberOfPaths + time * numberOfPaths + path;
+					/* allSpreads[index] */
+					final double spread = myModel.getLIBORSpreadAtGivenTimeIndex(myProcess2, time, component).get(path);
+					minIndex = Math.min(min, spread) == min? minIndex : index;
+					min = Math.min(min, spread);
+					maxIndex = Math.max(max, spread) == max? maxIndex : index;
+					max = Math.max(max, spread); 
+					if(spread < 0.0) {
+						// System.out.printf("Component: %3d, Time: %4d, Path: %7d, Spread: %12.8f\n", component, time, path, spread);
+						counter++;
+						counterPerComponent++;
+					}
+				}
+			}
+			System.out.printf("%7d of the %15d spreads are negative at component %2d\n\n", counterPerComponent, numberPerComp, component);
+		}
+		
+		System.out.println("Count of all numbers: " + (liborTimes * modelTimes * numberOfPaths));
+		System.out.println("Count of negative numbers: " + counter);
+		System.out.println("Count of positive numbers: " + (liborTimes * modelTimes * numberOfPaths - counter));
+		System.out.println("Minimum:");
+		long path = minIndex % numberOfPaths;
+		long time = Math.floorDiv(minIndex, numberOfPaths) % modelTimes;
+		long component = ((minIndex - path) / numberOfPaths - time) / modelTimes;
+		System.out.printf("LIBOR Index:  %12d \n", component);
+		System.out.printf("Time Index:   %12d \n", time);
+		System.out.printf("Path Index:   %12d \n", path);
+		System.out.printf("Min Value:    %12.8f \n\n", min);
+		
+		System.out.println("Maximum:");
+		path = maxIndex % numberOfPaths;
+		time = Math.floorDiv(maxIndex, numberOfPaths) % modelTimes;
+		component = ((maxIndex - path) / numberOfPaths - time) / modelTimes;
+		System.out.printf("LIBOR Index:  %12d \n", component);
+		System.out.printf("Time Index:   %12d \n", time);
+		System.out.printf("Path Index:   %12d \n", path);
+		System.out.printf("Max Value:    %12.8f \n", max);
 	}
 
 	
