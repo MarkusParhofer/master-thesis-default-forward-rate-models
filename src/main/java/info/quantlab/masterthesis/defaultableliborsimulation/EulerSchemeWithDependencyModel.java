@@ -29,7 +29,7 @@ public class EulerSchemeWithDependencyModel extends EulerSchemeFromProcessModel 
 	 * @param stochasticDriver
 	 */
 	public EulerSchemeWithDependencyModel(ProcessModel model, ProcessModel dependencyModel, IndependentIncrements stochasticDriver) {
-		super(model, Functional.getFirstFactors(stochasticDriver, model.getNumberOfFactors()));
+		super(model, stochasticDriver);
 		
 		Validate.isTrue(stochasticDriver.getNumberOfFactors() >= Math.max(model.getNumberOfFactors(), dependencyModel.getNumberOfFactors()), 
 				"Number of Factors of the stochastic driver must be greater or equal the maximum of the number of factors of the two specified models");

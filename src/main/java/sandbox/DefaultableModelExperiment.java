@@ -54,7 +54,7 @@ public class DefaultableModelExperiment {
 		ForwardCurve uForwardCurve = ForwardCurveInterpolation.createForwardCurveFromForwards("forwardCurve",	fixingTimes, uForwardRates, 0.5);
 		
 		// Set Covariance model of undefaultable LIBORs
-		TimeDiscretization timeDiscretization = new TimeDiscretizationFromArray(0.0, 20, 0.25); // Simulation time
+		TimeDiscretization timeDiscretization = new TimeDiscretizationFromArray(0.0, 20, 0.02); // Simulation time
 		LIBORCovarianceModel uCovarianceModel = new LIBORCovarianceModelExponentialForm5Param(timeDiscretization, liborPeriods, 9);
 		
 		// Set some more Properties:
@@ -74,6 +74,7 @@ public class DefaultableModelExperiment {
 		ForwardCurve myForwardCurve = ForwardCurveInterpolation.createForwardCurveFromForwards("defaultableForwardCurve", fixingTimes, myForwardRates, 0.5);
 		
 		// Set Covariance model of defaultable LIBORs
+		// Needs to be positive definite
 		double[][] freeParameters = new double[uModel.getNumberOfComponents()][3];
 		// Will set them as random doubles between 0 and 1
 		MersenneTwister randomGenerator = new MersenneTwister(1998);
@@ -103,12 +104,12 @@ public class DefaultableModelExperiment {
 		
 		// Set stochastic driver
 		int numberOfFactors = myModel.getNumberOfFactors();
-		int numberOfPaths = 100000;
+		int numberOfPaths = 10000;
 		int randomNumberSeed = 3141;
 		BrownianMotion myBrownianMotion = new BrownianMotionFromMersenneRandomNumbers(timeDiscretization, numberOfFactors, numberOfPaths, randomNumberSeed);
 
 		// Set different MonteCarloProcesses
-		EulerSchemeFromDefaultableLIBORModel myProcess = new EulerSchemeFromDefaultableLIBORModel(myModel, myBrownianMotion);
+		// EulerSchemeFromDefaultableLIBORModel myProcess = new EulerSchemeFromDefaultableLIBORModel(myModel, myBrownianMotion);
 		EulerSchemeWithDependencyModel myProcess2 = new EulerSchemeWithDependencyModel(myModel, uModel, myBrownianMotion);
 		
 		int modelTimes = timeDiscretization.getNumberOfTimes();
@@ -212,7 +213,7 @@ public class DefaultableModelExperiment {
 		}
 		System.out.println();
 		for(int i=0; i<liborPeriods.getNumberOfTimeSteps(); i++) {
-			System.out.printf("\033[4m%12.8f \033[m|", uModel.getLIBOR(myProcess.getDependencyProcess(), 0, i).doubleValue());
+			System.out.printf("\033[4m%12.8f \033[m|", uModel.getLIBOR(myProcess2.getDependencyProcess(), 0, i).doubleValue());
 		}
 		System.out.println();
 		for(int i=0; i<liborPeriods.getNumberOfTimeSteps(); i++) {
@@ -234,7 +235,7 @@ public class DefaultableModelExperiment {
 			}
 			System.out.println();
 			for(int i=1; i<timeDiscretization.getNumberOfTimeSteps(); i++) {
-				System.out.printf("\033[4m%12.8f \033[m|", uModel.getLIBOR(myProcess.getDependencyProcess(), i, 9).get(path));
+				System.out.printf("\033[4m%12.8f \033[m|", uModel.getLIBOR(myProcess2.getDependencyProcess(), i, 9).get(path));
 			}
 			System.out.println();
 			for(int i=1; i<timeDiscretization.getNumberOfTimeSteps(); i++) {
@@ -268,7 +269,7 @@ public class DefaultableModelExperiment {
 			long numberPerComp = 0;
 			for(int time=0; time < modelTimes; time++) {
 				if(timeDiscretization.getTime(time) > liborPeriods.getTime(component)) {
-					System.out.printf("\n Jumped at TimeIndex: %3d, Time: %5.2f, LIBORIndex: %3d, LIBOR Time: %5.2f\n", time, timeDiscretization.getTime(time), component, liborPeriods.getTime(component));
+					// System.out.printf("\n Jumped at TimeIndex: %3d, Time: %5.2f, LIBORIndex: %3d, LIBOR Time: %5.2f\n", time, timeDiscretization.getTime(time), component, liborPeriods.getTime(component));
 					numberPerComp = (long)time * (long)numberOfPaths;
 					break;
 				}

@@ -15,10 +15,6 @@ import net.finmath.stochastic.RandomVariable;
  */
 public interface DefaultableLIBORMarketModel extends LIBORModel {
 	
-	/* TODO: LIBORModel is maybe not suited as Interface for this Model: All methods concerning Factor Loadings need realizations from both 
-	* defaultable and undefaultable Methods. Furthermore the MonteCarloProcess instances of the defaultable and the undefaultable model
-	* should be forced to use the same stochastic driver.
-	*/
 	
 	/**
 	 * Return the defaultable forward rate (LIBOR) covariance model.
@@ -43,13 +39,33 @@ public interface DefaultableLIBORMarketModel extends LIBORModel {
 	 */
 	DefaultableLIBORMarketModel getCloneWithModifiedUndefaultableModel(LIBORMarketModel newUndefaultableModel);
 	
+	/**
+	 * Gets the Spread of the LIBOR rate (i.e. the difference between the defaultable and undefaultable rate) at a given Time.
+	 * @param process The simulation of the Model
+	 * @param time The time for which we get the spread
+	 * @param liborIndex The index of the LIBOR rate to get
+	 * @return The spread
+	 * @throws CalculationException
+	 */
 	default RandomVariable getLIBORSpreadAtGivenTime(MonteCarloProcessWithDependency process, final double time, final int liborIndex) throws CalculationException {
 		int timeIndex = process.getTimeIndex(time);
 		return getLIBORSpreadAtGivenTimeIndex(process, timeIndex, liborIndex);
 	}
 	
+	/**
+	 * Gets the Spread of the LIBOR rate (i.e. the difference between the defaultable and undefaultable rate) at a given time index.
+	 * @param process The simulation of the Model
+	 * @param timeIndex The time for which we get the spread
+	 * @param liborIndex The index of the LIBOR rate to get
+	 * @return The spread
+	 * @throws CalculationException
+	 */
 	RandomVariable getLIBORSpreadAtGivenTimeIndex(MonteCarloProcessWithDependency process, final int timeIndex, final int liborIndex) throws CalculationException;
 	
+	/**
+	 * Returns the underlying model for the undefaultable rate. E.g. Rates through AAA Government Bonds.
+	 * @return the undefaultable model.
+	 */
 	LIBORMarketModel getUnderlyingNonDefaultableModel();
 	
 }
