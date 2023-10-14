@@ -3,9 +3,14 @@
  */
 package info.quantlab.masterthesis.functional;
 
+import java.util.Map;
+
 import org.apache.commons.lang3.Validate;
 
+import net.finmath.exception.CalculationException;
 import net.finmath.montecarlo.IndependentIncrements;
+import net.finmath.montecarlo.model.ProcessModel;
+import net.finmath.montecarlo.process.MonteCarloProcess;
 import net.finmath.stochastic.RandomVariable;
 import net.finmath.time.TimeDiscretization;
 
@@ -93,4 +98,77 @@ public class Functional {
 		return getRangeOfFactors(increments, 0, numberOfFactors - 1);
 	}
 
+	
+	public static MonteCarloProcess getComponentReducedMCProcess(MonteCarloProcess process, int firstComponent, int lastComponent, int newNumberOfFactors) {
+		if(firstComponent == 0 && lastComponent == process.getNumberOfComponents() - 1)
+			return process;
+		
+		return new MonteCarloProcess() {
+			private int getOriginalIndex(int componentIndex) {
+				return componentIndex + firstComponent;
+			}
+			
+			@Override
+			public MonteCarloProcess clone() {
+				return Functional.getComponentReducedMCProcess(process, firstComponent, lastComponent, newNumberOfFactors);
+			}
+
+			@Override
+			public RandomVariable getProcessValue(int timeIndex, int componentIndex) throws CalculationException {
+				return process.getProcessValue(timeIndex, getOriginalIndex(componentIndex));
+			}
+
+			@Override
+			public RandomVariable getMonteCarloWeights(int timeIndex) throws CalculationException {
+				return process.getMonteCarloWeights(timeIndex);
+			}
+
+			@Override
+			public int getNumberOfComponents() {
+				return firstComponent - lastComponent + 1;
+			}
+
+			@Override
+			public TimeDiscretization getTimeDiscretization() {
+				return process.getTimeDiscretization();
+			}
+
+			@Override
+			public double getTime(int timeIndex) {
+				return process.getTime(timeIndex);
+			}
+
+			@Override
+			public int getTimeIndex(double time) {
+				return process.getTimeIndex(time);
+			}
+
+			@Override
+			public int getNumberOfPaths() {
+				return process.getNumberOfPaths();
+			}
+
+			@Override
+			public int getNumberOfFactors() {
+				return newNumberOfFactors == 0? process.getNumberOfFactors() : newNumberOfFactors;
+			}
+
+			@Override
+			public IndependentIncrements getStochasticDriver() {
+				return process.getStochasticDriver();
+			}
+
+			@Override
+			public MonteCarloProcess getCloneWithModifiedModel(ProcessModel model) {
+				return Functional.getComponentReducedMCProcess(process.getCloneWithModifiedModel(model), firstComponent, lastComponent, newNumberOfFactors);
+			}
+
+			@Override
+			public MonteCarloProcess getCloneWithModifiedData(Map<String, Object> dataModified) {
+				return Functional.getComponentReducedMCProcess(process.getCloneWithModifiedData(dataModified), firstComponent, lastComponent, newNumberOfFactors);
+				}
+		};
+	}
+
+	
 }
