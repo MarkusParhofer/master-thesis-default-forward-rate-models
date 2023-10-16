@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.Vector;
 
+import info.quantlab.masterthesis.defaultableliborsimulation.MonteCarloProcessWithDependency;
 import info.quantlab.masterthesis.functional.Functional;
 import net.finmath.exception.CalculationException;
 import net.finmath.marketdata.model.AnalyticModel;
@@ -176,7 +177,7 @@ public class DefaultableLIBORMarketModelFromCovarianceModel extends AbstractProc
 
 	@Override
 	public RandomVariable getLIBOR(MonteCarloProcess process, int timeIndex, int liborIndex) throws CalculationException {
-		return process.getProcessValue(timeIndex, liborIndex + getNumberOfLIBORPeriods());
+		return process.getProcessValue(timeIndex, getDefaultableComponentIndex(liborIndex));
 	}
 
 	@Override
@@ -303,12 +304,6 @@ public class DefaultableLIBORMarketModelFromCovarianceModel extends AbstractProc
 
 	/**
 	 * Copied from LIBORMarketModelFromCovarianceModel
-	 * @param process
-	 * @param timeIndex
-	 * @param periodStartTime
-	 * @param liborPeriodIndex
-	 * @return
-	 * @throws CalculationException
 	 */
 	private RandomVariable getOnePlusInterpolatedLIBORDt(final MonteCarloProcess process, int timeIndex, final double periodStartTime, final int liborPeriodIndex) throws CalculationException
 	{
@@ -371,11 +366,6 @@ public class DefaultableLIBORMarketModelFromCovarianceModel extends AbstractProc
 	
 	/**
 	 * Copied from LIBORMarketModelFromCovarianceModel
-	 * @param process
-	 * @param evaluationTimeIndex
-	 * @param liborIndex
-	 * @return
-	 * @throws CalculationException
 	 */
 	private RandomVariable getInterpolationDriftAdjustment(final MonteCarloProcess process, final int evaluationTimeIndex, final int liborIndex) throws CalculationException
 	{
@@ -421,11 +411,6 @@ public class DefaultableLIBORMarketModelFromCovarianceModel extends AbstractProc
 	
 	/**
 	 * Copied from LIBORMarketModelFromCovarianceModel
-	 * @param process
-	 * @param evaluationTimeIndex
-	 * @param liborIndex
-	 * @return
-	 * @throws CalculationException
 	 */
 	private RandomVariable getInterpolationDriftAdjustmentEvaluated(final MonteCarloProcess process, final int evaluationTimeIndex, final int liborIndex) throws CalculationException
 	{
@@ -530,6 +515,9 @@ public class DefaultableLIBORMarketModelFromCovarianceModel extends AbstractProc
 		return getUndefaultableLIBORModel().getDiscountCurve();
 	}
 
+	/**
+	 * Returns the initial forward rate curve of the defaultable model.
+	 */
 	@Override
 	public ForwardCurve getForwardRateCurve() {
 		return _forwardRateCurve;
@@ -659,7 +647,11 @@ public class DefaultableLIBORMarketModelFromCovarianceModel extends AbstractProc
 		propertyMap.put("handlesimulationtime", handleSimulationTime.toString());
 		propertyMap.put("interpolationmethod", interpolationMethod.toString());
 		
-		return new DefaultableLIBORMarketModelFromCovarianceModel(newUndefaultableModel, getCovarianceModel(), getForwardRateCurve(), getAnalyticModel(), propertyMap);
+		DefaultableLIBORCovarianceModel newCovarianceModel = getCovarianceModel();
+		if(newUndefaultableModel.getCovarianceModel() != newCovarianceModel.getUndefaultableCovarianceModel()) {
+			newCovarianceModel = newCovarianceModel.getCloneWithModifiedUndefaultableCovariance(newUndefaultableModel.getCovarianceModel());
+		}
+		return new DefaultableLIBORMarketModelFromCovarianceModel(newUndefaultableModel, newCovarianceModel, getForwardRateCurve(), getAnalyticModel(), propertyMap);
 	}
 
 	@Override
@@ -752,4 +744,21 @@ public class DefaultableLIBORMarketModelFromCovarianceModel extends AbstractProc
 		
 	}
 
+	@Override
+	public RandomVariable getLIBORSpreadAtGivenTimeIndex(MonteCarloProcessWithDependency process, int timeIndex, int liborIndex) throws CalculationException {
+		return getLIBOR(process, timeIndex, liborIndex).sub(getUndefaultableLIBOR(process, timeIndex, liborIndex));
+	}
+
+	
+	@Override
+	public RandomVariable getSpread(MonteCarloProcess process, double time, double periodStart, double periodEnd) throws CalculationException {
+		return getForwardRate(process, time, periodStart, periodEnd).sub(getUndefaultableForwardRate(process, time, periodStart, periodEnd));
+	}
+
+	@Override
+	public RandomVariable getUndefaultableForwardRate(MonteCarloProcess process, double time, double periodStart, double periodEnd) throws CalculationException {
+		return getUndefaultableLIBORModel().getForwardRate(getUndefaultableProcess(process), time, periodStart, periodEnd);
+	}
+
+	
 }
