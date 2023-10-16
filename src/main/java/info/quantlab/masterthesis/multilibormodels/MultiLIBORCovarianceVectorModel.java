@@ -69,7 +69,7 @@ public class MultiLIBORCovarianceVectorModel extends AbstractLIBORCovarianceMode
 		_calibrateUndefaultableModel = calibrateUndefaultableModel;
 		
 		for(int i = 0; i < _defaultableCovarianceModels.length; i++) {
-			if(!_undefaultableCovarianceModel.equals(_defaultableCovarianceModels[i].getCovarianceStructureOfUndefaultableModel())) {
+			if(!_undefaultableCovarianceModel.equals(_defaultableCovarianceModels[i].getUndefaultableCovarianceModel())) {
 				throw new InvalidParameterException("Undefaultable model is not equal to that of at least one defaultable model. Problem discovered at index " + i);
 			}
 		}
