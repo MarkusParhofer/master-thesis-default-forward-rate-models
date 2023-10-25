@@ -83,6 +83,10 @@ public class MultiLIBORCovarianceVectorModel extends AbstractLIBORCovarianceMode
 		return _calibrateUndefaultableModel && (_undefaultableCovarianceModel instanceof AbstractLIBORCovarianceModelParametric);
 	}
 	
+	public DefaultableLIBORCovarianceModel[] getArrayOfDefaultableCovarianceModels() {
+		return _defaultableCovarianceModels;
+	}
+	
 	public DefaultableLIBORCovarianceModel getDefaultableCovarianceModel(int index) {
 		return _defaultableCovarianceModels[index];
 	}
@@ -102,7 +106,7 @@ public class MultiLIBORCovarianceVectorModel extends AbstractLIBORCovarianceMode
 	@Override
 	public double[] getParameterAsDouble() {
 		
-		double[] allParams = new double[0];
+		double[] allParams = null;
 		
 		if(isUndefaultableModelCalibrateable()) {
 			allParams = ((AbstractLIBORCovarianceModelParametric)_undefaultableCovarianceModel).getParameterAsDouble();
@@ -119,32 +123,43 @@ public class MultiLIBORCovarianceVectorModel extends AbstractLIBORCovarianceMode
 
 	@Override
 	public RandomVariable[] getFactorLoading(int timeIndex, int component, RandomVariable[] realizationAtTimeIndex) {
+		final RandomVariable[] realizationOfUndefaultableModel = Arrays.copyOf(realizationAtTimeIndex, getNumberOfLIBORPeriods());
+		
+		if(component < getNumberOfLIBORPeriods()) {
+			final RandomVariable[] factorLoadingLowFactors = getUndefaultableLiborCovarianceModel().getFactorLoading(timeIndex, component, realizationOfUndefaultableModel);
+			final RandomVariable[] factorLoading = Arrays.copyOf(factorLoadingLowFactors, getNumberOfFactors());
+			Arrays.fill(factorLoading, getUndefaultableLiborCovarianceModel().getNumberOfFactors(), getNumberOfFactors(), Scalar.of(0.0));
+			return factorLoading;
+		}
+		
 		final int defaultableModelIndex = Math.floorDiv(component, getNumberOfLIBORPeriods()) - 1;
 		final int componentStartIndex = (defaultableModelIndex + 1) * getNumberOfLIBORPeriods();
 		final int componentEndIndex = componentStartIndex + getNumberOfLIBORPeriods();
-		final int modelComponent = component % getNumberOfLIBORPeriods();
+		final int modelComponent = component % getNumberOfLIBORPeriods() + getNumberOfLIBORPeriods();
+		final int timeIndexModified = getDefaultableCovarianceModel(defaultableModelIndex).getTimeDiscretization().
+				getTimeIndex(getTimeDiscretization().getTime(timeIndex));
 		
-		RandomVariable[] realizationOfUndefaultableModel = Arrays.copyOf(realizationAtTimeIndex, getNumberOfLIBORPeriods());
-		RandomVariable[] realizationOfDefaultableModel = Arrays.copyOfRange(realizationAtTimeIndex, componentStartIndex, componentEndIndex);
+		final RandomVariable[] realizationOfDefaultableModel = Arrays.copyOfRange(realizationAtTimeIndex, componentStartIndex, componentEndIndex);
 		
-		
-		RandomVariable[] factorLoadingLowFactors = _defaultableCovarianceModels[defaultableModelIndex].getFactorLoading(timeIndex, modelComponent, realizationOfDefaultableModel, realizationOfUndefaultableModel);
-		RandomVariable zero = Scalar.of(0.0);
-		RandomVariable[] factorLoading = Arrays.copyOf(factorLoadingLowFactors, getNumberOfFactors());
-		int firstIndexZero = _defaultableCovarianceModels[defaultableModelIndex].getNumberOfFactors();
+		final RandomVariable[] factorLoadingLowFactors = getDefaultableCovarianceModel(defaultableModelIndex).
+				getFactorLoading(timeIndexModified, modelComponent, realizationOfDefaultableModel, realizationOfUndefaultableModel);
+		final RandomVariable zero = Scalar.of(0.0);
+		final RandomVariable[] factorLoading = Arrays.copyOf(factorLoadingLowFactors, getNumberOfFactors());
+		int firstIndexZero = getDefaultableCovarianceModel(defaultableModelIndex).getNumberOfFactors();
 		
 		if(defaultableModelIndex != 0) {
-			int beginningOfExtraFactors = _undefaultableCovarianceModel.getNumberOfFactors();
+			final int undefFactors = getUndefaultableLiborCovarianceModel().getNumberOfFactors();
+			int beginningOfExtraFactors = undefFactors;
 			for(int i = 0; i < defaultableModelIndex; i++) {
-				beginningOfExtraFactors += _defaultableCovarianceModels[i].getNumberOfFactors() - _undefaultableCovarianceModel.getNumberOfFactors();
+				beginningOfExtraFactors += getDefaultableCovarianceModel(i).getNumberOfFactors() - undefFactors;
 			}
 			
-			Arrays.fill(factorLoading, _undefaultableCovarianceModel.getNumberOfFactors(), beginningOfExtraFactors, zero);
+			Arrays.fill(factorLoading, undefFactors, beginningOfExtraFactors, zero);
 			
-			for(int index = _undefaultableCovarianceModel.getNumberOfFactors(); index < _defaultableCovarianceModels[defaultableModelIndex].getNumberOfFactors(); index++) {
+			for(int index = undefFactors; index < firstIndexZero; index++) {
 				factorLoading[beginningOfExtraFactors + index] = factorLoadingLowFactors[index];
 			}
-			firstIndexZero = beginningOfExtraFactors + _defaultableCovarianceModels[defaultableModelIndex].getNumberOfFactors() - _undefaultableCovarianceModel.getNumberOfFactors();
+			firstIndexZero += beginningOfExtraFactors - undefFactors;
 		}
 		
 		Arrays.fill(factorLoading, firstIndexZero, factorLoading.length, zero);
@@ -158,16 +173,17 @@ public class MultiLIBORCovarianceVectorModel extends AbstractLIBORCovarianceMode
 
 	@Override
 	public MultiLIBORCovarianceVectorModel getCloneWithModifiedParameters(double[] parameters) {
-		int lastIndex = parameters.length;
-		DefaultableLIBORCovarianceModel[] newCovarianceModels = new DefaultableLIBORCovarianceModel[getNumberOfDefaultableModels()];
+		int lastIndexExclusive = parameters.length;
+		final DefaultableLIBORCovarianceModel[] newCovarianceModels = new DefaultableLIBORCovarianceModel[getNumberOfDefaultableModels()];
 		for(int modelIndex = getNumberOfDefaultableModels() - 1; modelIndex >= 0; modelIndex--) {
-			newCovarianceModels[modelIndex] = _defaultableCovarianceModels[modelIndex].getCloneWithModifiedParameters(Arrays.copyOfRange(parameters, lastIndex - _defaultableCovarianceModels[modelIndex].getNumberOfParameter(), lastIndex));
-			lastIndex -= _defaultableCovarianceModels[modelIndex].getNumberOfParameter();
+			final int firstIndex = lastIndexExclusive - _defaultableCovarianceModels[modelIndex].getNumberOfParameter();
+			newCovarianceModels[modelIndex] = _defaultableCovarianceModels[modelIndex].getCloneWithModifiedParameters(Arrays.copyOfRange(parameters, firstIndex, lastIndexExclusive));
+			lastIndexExclusive = firstIndex;
 		}
 		
 		LIBORCovarianceModel newUndefaultableCovarianceModel = _undefaultableCovarianceModel;
 		if(isUndefaultableModelCalibrateable()) {
-			newUndefaultableCovarianceModel = ((AbstractLIBORCovarianceModelParametric)_undefaultableCovarianceModel).getCloneWithModifiedParameters(Arrays.copyOfRange(parameters, 0, lastIndex));
+			newUndefaultableCovarianceModel = ((AbstractLIBORCovarianceModelParametric)_undefaultableCovarianceModel).getCloneWithModifiedParameters(Arrays.copyOfRange(parameters, 0, lastIndexExclusive));
 			for(int modelIndex = 0; modelIndex < getNumberOfDefaultableModels(); modelIndex++) {
 				newCovarianceModels[modelIndex] = newCovarianceModels[modelIndex].getCloneWithModifiedUndefaultableCovariance(newUndefaultableCovarianceModel);
 			}

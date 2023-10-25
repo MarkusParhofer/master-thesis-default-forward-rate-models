@@ -64,6 +64,18 @@ public interface DefaultableLIBORCovarianceModel extends LIBORCovarianceModel {
 		return getCloneWithModifiedParameters(parameterAsDouble);
 	}
 
+	/**
+	 * Returns the Factor Loading for the specified time and component index. While the realizations are separated here, the component index is still
+	 * the index for the whole model i.e. if <code>component</code> &lt; <code>getNumberOfLIBORPeriods()</code> this function will return 
+	 * the factor loading of the non-defaultable model, otherwise the ones from the defaultable model.
+	 * 
+	 * @param timeIndex The time index at which the factor loading is requested.
+	 * @param component The component index for which the factor loading is requested. If &lt; <code>getNumberOfLIBORPeriods()</code> this will give 
+	 * the factor loading of the non-defaultable model.
+	 * @param realizationAtTimeIndex The realization of the defaultable model (and only the defaultable model).
+	 * @param undefaultableRealization The realization of the non defaultable model.
+	 * @return The factor loading.
+	 */
 	public RandomVariable[] getFactorLoading(int timeIndex, int component, RandomVariable[] realizationAtTimeIndex, RandomVariable[] undefaultableRealization);
 	
 	public int getNumberOfLIBORPeriods();

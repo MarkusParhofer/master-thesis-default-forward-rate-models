@@ -1,12 +1,10 @@
 package sandbox;
 
-import java.text.DecimalFormat;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.DoubleUnaryOperator;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import info.quantlab.easyplot.EasyPlot2D;
@@ -15,11 +13,10 @@ import info.quantlab.masterthesis.defaultablecovariancemodels.SimpleDefaultableL
 import info.quantlab.masterthesis.defaultablelibormodels.DefaultableLIBORMarketModel;
 import info.quantlab.masterthesis.defaultablelibormodels.DefaultableLIBORWithPositiveSpread;
 import info.quantlab.masterthesis.defaultablelibormodels.DefaultableLIBORWithPositiveSpread.Measure;
-import info.quantlab.masterthesis.defaultableliborsimulation.EulerSchemeFromDefaultableLIBORModel;
 import info.quantlab.masterthesis.defaultableliborsimulation.EulerSchemeWithDependencyModel;
+import info.quantlab.masterthesis.multilibormodels.DefaultableLIBORCovarianceWithGuaranteedPositiveSpread;
+import info.quantlab.masterthesis.multilibormodels.DefaultableLIBORMarketModelFromCovarianceModel;
 import net.finmath.exception.CalculationException;
-import net.finmath.marketdata.model.AnalyticModel;
-import net.finmath.marketdata.model.curves.DiscountCurve;
 import net.finmath.marketdata.model.curves.DiscountCurveFromForwardCurve;
 import net.finmath.marketdata.model.curves.ForwardCurve;
 import net.finmath.marketdata.model.curves.ForwardCurveInterpolation;
@@ -30,6 +27,7 @@ import net.finmath.montecarlo.interestrate.LIBORMarketModel;
 import net.finmath.montecarlo.interestrate.models.LIBORMarketModelFromCovarianceModel;
 import net.finmath.montecarlo.interestrate.models.covariance.LIBORCovarianceModel;
 import net.finmath.montecarlo.interestrate.models.covariance.LIBORCovarianceModelExponentialForm5Param;
+import net.finmath.montecarlo.process.EulerSchemeFromProcessModel;
 import net.finmath.plots.Named;
 import net.finmath.randomnumbers.MersenneTwister;
 import net.finmath.stochastic.RandomVariable;
@@ -98,9 +96,18 @@ public class DefaultableModelExperiment {
 		System.out.println("_".repeat(79));
 		System.out.println();
 		DefaultableLIBORCovarianceModel myCovarianceModel = new SimpleDefaultableLIBORCovarianceWithGuaranteedPositiveSpread(uModel, freeParameters);
+		DefaultableLIBORCovarianceWithGuaranteedPositiveSpread myNewestAdditionCovariance = new DefaultableLIBORCovarianceWithGuaranteedPositiveSpread(uCovarianceModel, freeParameters);
 		
-		// Set defaultable LIBOR model
+		
+		// Set different defaultable LIBOR models
 		DefaultableLIBORMarketModel myModel = new DefaultableLIBORWithPositiveSpread(uModel, myForwardCurve, myCovarianceModel, Measure.SPOT);
+		
+		Map<String, String> extraValues = new HashMap<String, String>();
+		extraValues.put("measure", "SPOT");
+		extraValues.put("statespace", "NORMAL");
+		extraValues.put("handleSimulationTime", "ROUND_NEAREST");
+		extraValues.put("interpolationMethod", "LOG_LINEAR_UNCORRECTED");
+		DefaultableLIBORMarketModelFromCovarianceModel newestModel = new DefaultableLIBORMarketModelFromCovarianceModel(uModel, myNewestAdditionCovariance, myForwardCurve, null, extraValues);
 		
 		// Set stochastic driver
 		int numberOfFactors = myModel.getNumberOfFactors();
@@ -110,26 +117,31 @@ public class DefaultableModelExperiment {
 
 		// Set different MonteCarloProcesses
 		// EulerSchemeFromDefaultableLIBORModel myProcess = new EulerSchemeFromDefaultableLIBORModel(myModel, myBrownianMotion);
+		EulerSchemeFromProcessModel myProcess = new EulerSchemeFromProcessModel(newestModel, myBrownianMotion);
 		EulerSchemeWithDependencyModel myProcess2 = new EulerSchemeWithDependencyModel(myModel, uModel, myBrownianMotion);
 		
 		int modelTimes = timeDiscretization.getNumberOfTimes();
 		int liborTimes = liborPeriods.getNumberOfTimeSteps();
-//		RandomVariable[] spreadByTimeAtLIBOR8 = new RandomVariable[modelTimes];
-//		RandomVariable[] spreadByTimeAtLIBOR9 = new RandomVariable[modelTimes];
-//		RandomVariable[] spreadByLIBORAtTimeIndex1 = new RandomVariable[liborTimes];
-//		RandomVariable[] spreadByLIBORAtTimeIndex5 = new RandomVariable[liborTimes];
-//		
-//		for(int i = 0; i < Math.max(modelTimes, liborTimes); i++) {
-//			if(i < modelTimes) {
-//				spreadByTimeAtLIBOR8[i] = myModel.getLIBORSpreadAtGivenTimeIndex(myProcess, i, 8);
-//				spreadByTimeAtLIBOR9[i] = myModel.getLIBORSpreadAtGivenTimeIndex(myProcess, i, 9);
-//			}
-//			if(i < liborTimes) {
-//				spreadByLIBORAtTimeIndex1[i] = myModel.getLIBORSpreadAtGivenTimeIndex(myProcess, 1, i);
-//				spreadByLIBORAtTimeIndex5[i] = myModel.getLIBORSpreadAtGivenTimeIndex(myProcess, 5, i);
-//			}
-//		}
-//		
+		RandomVariable[] spreadByTimeAtLIBOR0 = new RandomVariable[modelTimes];
+		RandomVariable[] spreadByTimeAtLIBOR5 = new RandomVariable[modelTimes];
+		RandomVariable[] spreadByTimeAtLIBOR9 = new RandomVariable[modelTimes];
+		RandomVariable[] spreadByLIBORAtTimeIndex0 = new RandomVariable[liborTimes];
+		RandomVariable[] spreadByLIBORAtTimeIndex1 = new RandomVariable[liborTimes];
+		RandomVariable[] spreadByLIBORAtTimeIndex5 = new RandomVariable[liborTimes];
+		
+		for(int i = 0; i < Math.max(modelTimes, liborTimes); i++) {
+			if(i < modelTimes) {
+				spreadByTimeAtLIBOR0[i] = newestModel.getLIBORSpreadAtGivenTimeIndex(myProcess, i, 0);
+				spreadByTimeAtLIBOR5[i] = newestModel.getLIBORSpreadAtGivenTimeIndex(myProcess, i, 5);
+				spreadByTimeAtLIBOR9[i] = newestModel.getLIBORSpreadAtGivenTimeIndex(myProcess, i, 9);
+			}
+			if(i < liborTimes) {
+				spreadByLIBORAtTimeIndex0[i] = newestModel.getLIBORSpreadAtGivenTimeIndex(myProcess, 0, i);
+				spreadByLIBORAtTimeIndex1[i] = newestModel.getLIBORSpreadAtGivenTimeIndex(myProcess, 1, i);
+				spreadByLIBORAtTimeIndex5[i] = newestModel.getLIBORSpreadAtGivenTimeIndex(myProcess, 5, i);
+			}
+		}
+		
 		RandomVariable[] spreadByTimeAtLIBOR0P2 = new RandomVariable[modelTimes];
 		RandomVariable[] spreadByTimeAtLIBOR5P2 = new RandomVariable[modelTimes];
 		RandomVariable[] spreadByTimeAtLIBOR9P2 = new RandomVariable[modelTimes];
@@ -150,6 +162,7 @@ public class DefaultableModelExperiment {
 			}
 		}
 		
+		/*
 		System.out.println();
 		System.out.println("First 10 paths of independent Increments at timeIndex=2; UD = undefaultable model; DM = defaultable model");
 		System.out.println();
@@ -180,9 +193,14 @@ public class DefaultableModelExperiment {
 			}
 			System.out.println();
 		}
+		*/
+		
+		EasyPlot2D spreadByTime = plotPaths(spreadByTimeAtLIBOR0, 3, timeDiscretization, "LIBOR 0", null);
+		spreadByTime = plotPaths(spreadByTimeAtLIBOR5, 3, timeDiscretization, "LIBOR 5", spreadByTime);
+		spreadByTime = plotPaths(spreadByTimeAtLIBOR9, 3, timeDiscretization, "LIBOR 9", spreadByTime);
 		
 		
-		EasyPlot2D spreadByTime = plotPaths(spreadByTimeAtLIBOR0P2, 3, timeDiscretization, "LIBOR 0 P2", null);
+		spreadByTime = plotPaths(spreadByTimeAtLIBOR0P2, 3, timeDiscretization, "LIBOR 0 P2", spreadByTime);
 		spreadByTime = plotPaths(spreadByTimeAtLIBOR5P2, 3, timeDiscretization, "LIBOR 5 P2", spreadByTime);
 		// spreadByTime = plotPaths(spreadByTimeAtLIBOR8P2, 5, timeDiscretization, "LIBOR 8 P2", spreadByTime);
 		// spreadByTime = plotPaths(spreadByTimeAtLIBOR9, 5, timeDiscretization, "LIBOR 9 P1", spreadByTime);
@@ -191,7 +209,12 @@ public class DefaultableModelExperiment {
 		spreadByTime.setXAxisLabel("Time Unit");
 		spreadByTime.setIsLegendVisible(true);
 		
-		EasyPlot2D spreadByLIBOR = plotPaths(spreadByLIBORAtTimeIndex0P2, 3, liborPeriods, "TimeIndex 0 P2", null);
+		EasyPlot2D spreadByLIBOR = plotPaths(spreadByLIBORAtTimeIndex0, 3, liborPeriods, "TimeIndex 0", null);
+		spreadByLIBOR = plotPaths(spreadByLIBORAtTimeIndex1, 3, liborPeriods, "TimeIndex 1", spreadByLIBOR);
+		spreadByLIBOR = plotPaths(spreadByLIBORAtTimeIndex5, 3, liborPeriods, "TimeIndex 5", spreadByLIBOR);
+		
+		
+		spreadByLIBOR = plotPaths(spreadByLIBORAtTimeIndex0P2, 3, liborPeriods, "TimeIndex 0 P2", spreadByLIBOR);
 		spreadByLIBOR = plotPaths(spreadByLIBORAtTimeIndex1P2, 3, liborPeriods, "TimeIndex 1 P2", spreadByLIBOR);
 		// spreadByLIBOR = plotPaths(spreadByLIBORAtTimeIndex1P2, 5, liborPeriods, "TimeIndex 1 P2", spreadByLIBOR);
 		// spreadByLIBOR = plotPaths(spreadByLIBORAtTimeIndex5, 5, liborPeriods, "TimeIndex 5", spreadByLIBOR);
@@ -203,6 +226,7 @@ public class DefaultableModelExperiment {
 		spreadByTime.show();
 		spreadByLIBOR.show();
 		
+		/*
 		System.out.println("\n");
 		System.out.println("_".repeat(79));
 		System.out.println();
@@ -219,7 +243,7 @@ public class DefaultableModelExperiment {
 		for(int i=0; i<liborPeriods.getNumberOfTimeSteps(); i++) {
 			System.out.printf("%12.8f |", spreadByLIBORAtTimeIndex0P2[i].doubleValue());
 		}
-		
+		*/
 		
 		
 		
@@ -230,14 +254,32 @@ public class DefaultableModelExperiment {
 		System.out.println();
 		for(int path=0; path < 50; path++) {
 			System.out.println("Path " + path + ":");
+			
+			// Defaultable LIBORs:
+			System.out.print("Def P1: "); // Process 1
+			for(int i=1; i<timeDiscretization.getNumberOfTimeSteps(); i++) {
+				System.out.printf("%12.8f |", newestModel.getLIBOR(myProcess, i, 9).get(path));
+			}
+			System.out.println();
+			System.out.print("Def P2: "); // Process 2
 			for(int i=1; i<timeDiscretization.getNumberOfTimeSteps(); i++) {
 				System.out.printf("%12.8f |", myModel.getLIBOR(myProcess2, i, 9).get(path));
 			}
+			
+			// Undefaultable LIBORs:
 			System.out.println();
+			System.out.print("Und P1: "); // Process 1
+			for(int i=1; i<timeDiscretization.getNumberOfTimeSteps(); i++) {
+				System.out.printf("%12.8f |", newestModel.getUndefaultableLIBOR(myProcess, i, 9).get(path));
+			}
+			System.out.println();
+			System.out.print("Und P2: "); // Process 2
 			for(int i=1; i<timeDiscretization.getNumberOfTimeSteps(); i++) {
 				System.out.printf("\033[4m%12.8f \033[m|", uModel.getLIBOR(myProcess2.getDependencyProcess(), i, 9).get(path));
 			}
+			
 			System.out.println();
+			System.out.print("Spread: ");
 			for(int i=1; i<timeDiscretization.getNumberOfTimeSteps(); i++) {
 				final double spread = spreadByTimeAtLIBOR9P2[i].get(path);
 				if(spread >= 0)
@@ -253,7 +295,9 @@ public class DefaultableModelExperiment {
 		 * E[cU] = E[cD]*P(Default)
 		 */
 		
+		
 		// -------------------- Control Area -----------------------------------------------
+		
 		System.out.println("\n");
 		System.out.println("_".repeat(79));
 		System.out.println();
@@ -276,7 +320,7 @@ public class DefaultableModelExperiment {
 				for(int path=0; path < numberOfPaths; path++) {
 					
 					final long index = component * modelTimes * numberOfPaths + time * numberOfPaths + path;
-					/* allSpreads[index] */
+					// allSpreads[index]
 					final double spread = myModel.getLIBORSpreadAtGivenTimeIndex(myProcess2, time, component).get(path);
 					minIndex = Math.min(min, spread) == min? minIndex : index;
 					min = Math.min(min, spread);

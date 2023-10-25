@@ -1,6 +1,5 @@
 package info.quantlab.masterthesis.multilibormodels;
 
-import info.quantlab.masterthesis.defaultableliborsimulation.MonteCarloProcessWithDependency;
 import net.finmath.exception.CalculationException;
 import net.finmath.montecarlo.interestrate.LIBORMarketModel;
 import net.finmath.montecarlo.interestrate.LIBORModel;
@@ -49,25 +48,55 @@ public interface DefaultableLIBORMarketModel extends LIBORMarketModel {
 	 * This method will only get the defaultable LIBOR Rate. 
 	 */
 	@Override
-	RandomVariable getLIBOR(MonteCarloProcess process, int timeIndex, int liborIndex) throws CalculationException;
+	default RandomVariable getLIBOR(MonteCarloProcess process, int timeIndex, int liborIndex) throws CalculationException {
+		return getDefaultableLIBOR(process, timeIndex, liborIndex);
+	}
 
 	/**
-	 * Return the forward rate of the undefaultable model at a given timeIndex and for a given liborIndex.
+	 * Return the forward rate of the defaultable model at a given timeIndex and for a given liborIndex.
+	 * 
+	 * @param process The discretization process generating this model. The process provides call backs for 
+	 * TimeDiscretization and allows calls to getProcessValue for timeIndices less or equal the given one.
+	 * @param timeIndex The time index (associated with {@link MonteCarloProcess#getTimeDiscretization()}).
+	 * @param liborIndex The forward rate index (associated with {@link LIBORModel#getLiborPeriodDiscretization()})
+	 * @return The forward rate of the defaultable model.
+	 * @throws CalculationException - Thrown if calculation failed.
+	 */
+	RandomVariable getDefaultableLIBOR(MonteCarloProcess process, int timeIndex, int liborIndex) throws CalculationException;
+	
+	/**
+	 * Return the forward rate of the non-defaultable model at a given timeIndex and for a given liborIndex.
 	 * 
 	 * @param process The discretization process generating this model. The process provides call backs for 
 	 * 	TimeDiscretization and allows calls to getProcessValue for timeIndices less or equal the given one.
 	 * @param timeIndex The time index (associated with {@link MonteCarloProcess#getTimeDiscretization()}).
 	 * @param liborIndex The forward rate index (associated with {@link LIBORModel#getLiborPeriodDiscretization()})
-	 * @return The forward rate of the undefaultable model.
+	 * @return The forward rate of the non-defaultable model.
 	 * @throws CalculationException Thrown if calculation failed.
 	 */
 	RandomVariable getUndefaultableLIBOR(MonteCarloProcess process, int timeIndex, int liborIndex) throws CalculationException;
 
 	/**
-	 * This method will get the defaultable Forward Rate. 
+	 * Same as {@link #getDefaultableForwardRate(process, time, periodStart, periodEnd)}.
 	 */
 	@Override
-	RandomVariable getForwardRate(MonteCarloProcess process, double time, double periodStart, double periodEnd) throws CalculationException;
+	default RandomVariable getForwardRate(MonteCarloProcess process, double time, double periodStart, double periodEnd) throws CalculationException {
+		return getDefaultableForwardRate(process, time, periodStart, periodEnd);
+	}
+	
+	/**
+	 * Gets the forward rate of the defaultable model. This Forward rate is <math>F<sub>t</sub></math>-measurable. Furthermore it is given 
+	 * pre-default: hence default has not yet happened at time t.
+	 * Hence it returns: E[L<sup>d</sup>(S,T) | F<sub>t</sub> &cap; {&tau; > t } ]
+	 * 
+	 * @param process The discretization process generating this model.
+	 * @param time The evaluation time.
+	 * @param periodStart The period start of the forward rate.
+	 * @param periodEnd The period end of the forward rate.
+	 * @return The defaultable forward rate.
+	 * @throws CalculationException - Thrown if model fails to calculate the random variable.
+	 */
+	RandomVariable getDefaultableForwardRate(MonteCarloProcess process, double time, double periodStart, double periodEnd) throws CalculationException;
 	
 	/**
 	 * Gets the forward rate asscociated with the underlying undefaultable model.
@@ -101,7 +130,7 @@ public interface DefaultableLIBORMarketModel extends LIBORMarketModel {
 	 * @return The spread
 	 * @throws CalculationException
 	 */
-	RandomVariable getLIBORSpreadAtGivenTimeIndex(MonteCarloProcessWithDependency process, final int timeIndex, final int liborIndex) throws CalculationException;
+	RandomVariable getLIBORSpreadAtGivenTimeIndex(MonteCarloProcess process, final int timeIndex, final int liborIndex) throws CalculationException;
 	
 	/**
 	 * Gets the Spread of the LIBOR rate (i.e. the difference between the defaultable and undefaultable rate) at a given time index.
@@ -111,11 +140,31 @@ public interface DefaultableLIBORMarketModel extends LIBORMarketModel {
 	 * @return The spread
 	 * @throws CalculationException
 	 */
-	default RandomVariable getLIBORSpreadAtGivenTime(MonteCarloProcessWithDependency process, final double time, final int liborIndex) throws CalculationException {
+	default RandomVariable getLIBORSpreadAtGivenTime(MonteCarloProcess process, final double time, final int liborIndex) throws CalculationException {
 		int timeIndex = process.getTimeIndex(time);
 		return getLIBORSpreadAtGivenTimeIndex(process, timeIndex, liborIndex);
 	}
 
+	/**
+	 * Gets the defaultable zero coupon Bond (i.e. <i>P<sup>d</sup>(t;T)</i>) associated with this model. We assume non-default until valuation time.
+	 * @param process The simulation process of the model.
+	 * @param time The evaluation time of the bond with given maturity.
+	 * @param maturity The maturity of the bond
+	 * @return The price of a defaultable Zero Coupon Bond conditional on Pre-default (No default until <code>time</code>)
+	 * @throws CalculationException - Thrown if model fails to calculate the random variable.
+	 */
+	RandomVariable getDefaultableBond(MonteCarloProcess process, final double time, final double maturity) throws CalculationException;
+	
+	/**
+	 * Gets the probability of survival until maturity time, given default has not yet happened at evaluation time. Note that this 
+	 * is a conditional probability conditioned on F<sub>t</sub> <b>and</b> on {&tau; &gt; t}
+	 * @param process The simulation process of the model.
+	 * @param evaluationTime The evaluation time of the probability.
+	 * @param maturity The time until which to get the probability of survival for
+	 * @return The probability of survival
+	 */
+	RandomVariable getSurvivalProbability(MonteCarloProcess process, final double evaluationTime, final double maturity) throws CalculationException;
+	
 	/**
 	 * Gets the spread from the defaultable and the undefaultable Forward rates.
 	 * @param process The simulation of the Model

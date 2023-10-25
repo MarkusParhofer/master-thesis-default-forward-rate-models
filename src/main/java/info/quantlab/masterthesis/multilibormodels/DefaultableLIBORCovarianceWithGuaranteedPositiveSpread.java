@@ -143,12 +143,13 @@ public class DefaultableLIBORCovarianceWithGuaranteedPositiveSpread extends Abst
 
 	@Override
 	public RandomVariable[] getFactorLoading(int timeIndex, int component, RandomVariable[] realizationAtTimeIndex) {
-		RandomVariable[] undefaultableFactorLoading = getUndefaultableFactorLoading(timeIndex, component, Arrays.copyOf(realizationAtTimeIndex, getNumberOfLIBORPeriods()));
+		final int liborPeriodIndex = getLIBORIndexFromComponent(component);
+		RandomVariable[] undefaultableFactorLoading = getUndefaultableFactorLoading(timeIndex, liborPeriodIndex, Arrays.copyOf(realizationAtTimeIndex, getNumberOfLIBORPeriods()));
 		
 		if(component < getNumberOfLIBORPeriods()) {
 			return undefaultableFactorLoading;
 		}
-		return getDefaultableFactorLoading(timeIndex, component, undefaultableFactorLoading, realizationAtTimeIndex[component], realizationAtTimeIndex[getLIBORIndexFromComponent(component)]);
+		return getDefaultableFactorLoading(timeIndex, liborPeriodIndex, undefaultableFactorLoading, realizationAtTimeIndex[component], realizationAtTimeIndex[getLIBORIndexFromComponent(component)]);
 	
 	}
 	
