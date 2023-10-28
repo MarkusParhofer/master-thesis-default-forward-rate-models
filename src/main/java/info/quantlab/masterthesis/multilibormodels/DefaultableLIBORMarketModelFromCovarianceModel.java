@@ -174,6 +174,12 @@ public class DefaultableLIBORMarketModelFromCovarianceModel extends AbstractProc
 		return integratedLIBORCovariance;
 	}
 
+	
+	public double[][][] getApproximatedIntegratedLIBORCovariance(TimeDiscretization timeDiscretization) {
+		
+		return null;
+	}
+	
 	@Override
 	public RandomVariable getDefaultableLIBOR(MonteCarloProcess process, int timeIndex, int liborIndex) throws CalculationException {
 		return process.getProcessValue(timeIndex, getDefaultableComponentIndex(liborIndex));
@@ -631,7 +637,7 @@ public class DefaultableLIBORMarketModelFromCovarianceModel extends AbstractProc
 	}
 
 	@Override
-	public DefaultableLIBORMarketModel getCloneWithModifiedCovarianceModel(LIBORCovarianceModel newCovarianceModel) {
+	public DefaultableLIBORMarketModelFromCovarianceModel getCloneWithModifiedCovarianceModel(LIBORCovarianceModel newCovarianceModel) {
 		Map<String, String> propertyMap = new HashMap<String, String>();
 		propertyMap.put("measure", measure.toString());
 		propertyMap.put("statespace", stateSpace.toString());

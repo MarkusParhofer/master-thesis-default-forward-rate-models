@@ -138,6 +138,19 @@ public class MultiLIBORVectorModel implements LIBORMarketModel {
 		return getDefaultableModel(liborModelIndex).getDefaultableForwardRate(getDefaultableProcess(process, liborModelIndex), time, periodStart, periodEnd);
 	}
 
+	/**
+	 * Gets the probability of survival until maturity time, given default has not yet happened at evaluation time. Note that this 
+	 * is a conditional probability conditioned on F<sub>t</sub> <b>and</b> on {&tau; &gt; t}
+	 * @param process The simulation process of the model.
+	 * @param evaluationTime The evaluation time of the probability.
+	 * @param maturity The time until which to get the probability of survival for
+	 * @param liborModelIndex The zero based index of the defaultable Model to use for the calculation of the survival probability
+	 * @return The probability of survival
+	 */
+	public RandomVariable getSurvivalProbability(MonteCarloProcess process, final double evaluationTime, final double maturity, int liborModelIndex) throws CalculationException {
+		return getDefaultableModel(liborModelIndex).getSurvivalProbability(getDefaultableProcess(process, liborModelIndex), evaluationTime, maturity);
+	}
+	
 	@Override
 	public AnalyticModel getAnalyticModel() {
 		return null;

@@ -52,7 +52,7 @@ public class DefaultableModelExperiment {
 		ForwardCurve uForwardCurve = ForwardCurveInterpolation.createForwardCurveFromForwards("forwardCurve",	fixingTimes, uForwardRates, 0.5);
 		
 		// Set Covariance model of undefaultable LIBORs
-		TimeDiscretization timeDiscretization = new TimeDiscretizationFromArray(0.0, 20, 0.02); // Simulation time
+		TimeDiscretization timeDiscretization = new TimeDiscretizationFromArray(0.0, 250, 0.02); // Simulation time
 		LIBORCovarianceModel uCovarianceModel = new LIBORCovarianceModelExponentialForm5Param(timeDiscretization, liborPeriods, 9);
 		
 		// Set some more Properties:

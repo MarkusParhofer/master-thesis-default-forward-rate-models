@@ -28,6 +28,7 @@ public class DefaultableCouponBond extends AbstractSellerDefaultableTermStructur
 	@Override
 	public RandomVariable getValue(double evaluationTime, TermStructureMonteCarloSimulationModel model) throws CalculationException {
 		RandomVariable values = model.getRandomVariableForConstant(0.0);
+		
 		for(int i = 0; i < _paymentTenor.getNumberOfTimes(); i++) {
 			final RandomVariable	numeraire				= model.getNumeraire(_paymentTenor.getTime(i));
 			final RandomVariable	monteCarloWeights	= model.getMonteCarloWeights(model.getTimeIndex(_paymentTenor.getTime(i)));
