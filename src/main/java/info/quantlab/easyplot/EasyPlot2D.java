@@ -4,8 +4,6 @@
 package info.quantlab.easyplot;
 import java.awt.BasicStroke;
 import java.awt.Color;
-import java.awt.Polygon;
-import java.awt.Rectangle;
 import java.awt.Shape;
 import java.util.Arrays;
 import java.util.Collections;
@@ -36,6 +34,8 @@ public class EasyPlot2D extends Plot2D {
 	private static DrawingSupplier staticDrawingSupplier = new DefaultDrawingSupplier();
 	
 	private DrawingSupplier unstaticDrawingSupplier;
+	
+	private static Shape lastShape;
 	
 	private List<Plotable2D> plotables;
 	
@@ -209,7 +209,8 @@ public class EasyPlot2D extends Plot2D {
 	
 	public static GraphStyle getDefaultGraphStyle(final int funcIndex, final boolean asLine, DrawingSupplier drawingSupplier) {
 		if(asLine) {
-			return new GraphStyle(drawingSupplier.getNextShape(), new BasicStroke(2.0f), getDefaultColor(funcIndex));
+			lastShape = funcIndex % 5 == 0? drawingSupplier.getNextShape() : lastShape;
+			return new GraphStyle(lastShape, new BasicStroke(2.0f), getDefaultColor(funcIndex));
 		} else {
 			return new GraphStyle(drawingSupplier.getNextShape(), null, getDefaultColor(funcIndex * 10 + (((int)Math.floor(funcIndex / 10.0)) % 10)));
 		}

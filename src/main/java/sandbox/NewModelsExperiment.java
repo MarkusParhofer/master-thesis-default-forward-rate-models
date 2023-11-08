@@ -208,7 +208,7 @@ public class NewModelsExperiment {
 			final TimeDiscretization paymentTenor = new TimeDiscretizationFromArray(0.3, 8, 0.5);
 			final double strikeRate = 0.06;
 			
-			final DefaultableCap product = new DefaultableCap(paymentTenor, strikeRate, notional);
+			final DefaultableCap product = new DefaultableCap(paymentTenor, strikeRate, true, true);
 			
 			final RandomVariable targetValue = product.getValue(0.0, valuationModel);
 			
@@ -222,7 +222,7 @@ public class NewModelsExperiment {
 		{
 			final TimeDiscretization paymentTenor = new TimeDiscretizationFromArray(0.9, 16, 0.25);
 			final double strikeRate = 0.03;
-			final DefaultableCap product = new DefaultableCap(paymentTenor, strikeRate, notional);
+			final DefaultableCap product = new DefaultableCap(paymentTenor, strikeRate, true, false);
 			
 			final RandomVariable targetValue = product.getValue(0.0, valuationModel);
 			
@@ -236,7 +236,7 @@ public class NewModelsExperiment {
 		{
 			final TimeDiscretization paymentTenor = new TimeDiscretizationFromArray(4.5, 4, 0.125);
 			final double strikeRate = 0.01;
-			final DefaultableCap product = new DefaultableCap(paymentTenor, strikeRate, notional);
+			final DefaultableCap product = new DefaultableCap(paymentTenor, strikeRate, false, true);
 			
 			final RandomVariable targetValue = product.getValue(0.0, valuationModel);
 			
@@ -250,7 +250,7 @@ public class NewModelsExperiment {
 		{
 			final TimeDiscretization paymentTenor = new TimeDiscretizationFromArray(0.1, 5, 0.25);
 			final double strikeRate = 0.02;
-			final DefaultableCap product = new DefaultableCap(paymentTenor, strikeRate, notional);
+			final DefaultableCap product = new DefaultableCap(paymentTenor, strikeRate, true, true);
 			
 			final RandomVariable targetValue = product.getValue(0.0, valuationModel);
 			
@@ -264,7 +264,7 @@ public class NewModelsExperiment {
 		{
 			final TimeDiscretization paymentTenor = new TimeDiscretizationFromArray(0.15, 6, 0.35);
 			final double strikeRate = 0.006;
-			final DefaultableFloor product = new DefaultableFloor(paymentTenor, strikeRate, notional);
+			final DefaultableFloor product = new DefaultableFloor(paymentTenor, strikeRate, true, false);
 			
 			final RandomVariable targetValue = product.getValue(0.0, valuationModel);
 			
@@ -278,7 +278,7 @@ public class NewModelsExperiment {
 		{
 			final TimeDiscretization paymentTenor = new TimeDiscretizationFromArray(1.25, 3, 1.0);
 			final double strikeRate = 0.01;
-			final DefaultableFloor product = new DefaultableFloor(paymentTenor, strikeRate, notional);
+			final DefaultableFloor product = new DefaultableFloor(paymentTenor, strikeRate, false, true);
 			
 			final RandomVariable targetValue = product.getValue(0.0, valuationModel);
 			
@@ -292,7 +292,7 @@ public class NewModelsExperiment {
 		{
 			final TimeDiscretization paymentTenor = new TimeDiscretizationFromArray(4.25, 4, 0.14);
 			final double strikeRate = 0.03;
-			final DefaultableFloor product = new DefaultableFloor(paymentTenor, strikeRate, notional);
+			final DefaultableFloor product = new DefaultableFloor(paymentTenor, strikeRate, true, true);
 			
 			final RandomVariable targetValue = product.getValue(0.0, valuationModel);
 			
@@ -306,7 +306,7 @@ public class NewModelsExperiment {
 		{
 			final TimeDiscretization paymentTenor = new TimeDiscretizationFromArray(0.235, 20, 0.20);
 			final double strikeRate = 0.015;
-			final DefaultableFloor product = new DefaultableFloor(paymentTenor, strikeRate, notional);
+			final DefaultableFloor product = new DefaultableFloor(paymentTenor, strikeRate, true, false);
 			
 			final RandomVariable targetValue = product.getValue(0.0, valuationModel);
 			
@@ -321,7 +321,7 @@ public class NewModelsExperiment {
 			final double fixingTime = 2.0;
 			final double periodLength = 2.0;
 			final double strikeRate = 0.029;
-			final DefaultableCaplet product = new DefaultableCaplet(strikeRate, fixingTime, periodLength, notional, false);
+			final DefaultableCaplet product = new DefaultableCaplet(strikeRate, fixingTime, periodLength, 0, 0, notional, false);
 			
 			final RandomVariable targetValue = product.getValue(0.0, valuationModel);
 			
@@ -336,7 +336,7 @@ public class NewModelsExperiment {
 			final double fixingTime = 3.865;
 			final double periodLength = 0.566;// 4.431
 			final double strikeRate = 0.024;
-			final DefaultableCaplet product = new DefaultableCaplet(strikeRate, fixingTime, periodLength, notional, false);
+			final DefaultableCaplet product = new DefaultableCaplet(strikeRate, fixingTime, periodLength, 0, -1, notional, false);
 			
 			final RandomVariable targetValue = product.getValue(0.0, valuationModel);
 			
@@ -351,7 +351,7 @@ public class NewModelsExperiment {
 			final double fixingTime = 1.5;
 			final double periodLength = 1.0;
 			final double strikeRate = 0.014;
-			final DefaultableCaplet product = new DefaultableCaplet(strikeRate, fixingTime, periodLength, notional, true);
+			final DefaultableCaplet product = new DefaultableCaplet(strikeRate, fixingTime, periodLength, -1, 0, notional, true);
 			
 			final RandomVariable targetValue = product.getValue(0.0, valuationModel);
 			
@@ -366,7 +366,7 @@ public class NewModelsExperiment {
 			final double fixingTime = 4.25;
 			final double periodLength = 0.15;
 			final double strikeRate = 0.028;
-			final DefaultableCaplet product = new DefaultableCaplet(strikeRate, fixingTime, periodLength, notional, true);
+			final DefaultableCaplet product = new DefaultableCaplet(strikeRate, fixingTime, periodLength, 0, 0, notional, true);
 			
 			final RandomVariable targetValue = product.getValue(0.0, valuationModel);
 			

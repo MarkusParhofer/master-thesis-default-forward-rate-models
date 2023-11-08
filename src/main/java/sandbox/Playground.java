@@ -22,7 +22,7 @@ public class Playground {
 	public static long toc() {
 		long result = System.nanoTime();
 		result -= startTime;
-		System.out.println("Elapsed Time is: " + result);
+		System.out.println("Elapsed Time is: " + result/1000 + " Microseconds");
 		return result;
 	}
 	

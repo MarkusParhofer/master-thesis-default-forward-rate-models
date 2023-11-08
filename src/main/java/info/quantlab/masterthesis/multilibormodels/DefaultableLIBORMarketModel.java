@@ -45,7 +45,7 @@ public interface DefaultableLIBORMarketModel extends LIBORMarketModel {
 	DefaultableLIBORCovarianceModel getCovarianceModel();
 	
 	/**
-	 * This method will only get the defaultable LIBOR Rate. 
+	 * This method will only get either the non- or the defaultable LIBOR Rate depending on the liborIndex. 
 	 */
 	@Override
 	default RandomVariable getLIBOR(MonteCarloProcess process, int timeIndex, int liborIndex) throws CalculationException {
@@ -142,6 +142,9 @@ public interface DefaultableLIBORMarketModel extends LIBORMarketModel {
 	 */
 	default RandomVariable getLIBORSpreadAtGivenTime(MonteCarloProcess process, final double time, final int liborIndex) throws CalculationException {
 		int timeIndex = process.getTimeIndex(time);
+		if(timeIndex < 0) {
+			timeIndex = - timeIndex - 2;
+		}
 		return getLIBORSpreadAtGivenTimeIndex(process, timeIndex, liborIndex);
 	}
 

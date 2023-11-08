@@ -80,4 +80,15 @@ public interface DefaultableLIBORCovarianceModel extends LIBORCovarianceModel {
 	
 	public int getNumberOfLIBORPeriods();
 	
+	public default RandomVariable[] getFactorLoadingOfSpread(int timeIndex, int component, RandomVariable[] realizationAtTimeIndex) {
+		throw new UnsupportedOperationException("Spread dynamic is not implemented for this covariance Model!");
+	}
+	
+	public default RandomVariable[] getFactorLoadingOfSpread(double time, int component, RandomVariable[] realizationAtTimeIndex) {
+		int timeIndex = getTimeDiscretization().getTimeIndex(time);
+		if(timeIndex < 0)
+			timeIndex = - timeIndex - 2;
+		
+		return getFactorLoadingOfSpread(timeIndex, component, realizationAtTimeIndex);
+	}
 }

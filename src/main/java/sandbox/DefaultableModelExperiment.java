@@ -46,9 +46,12 @@ public class DefaultableModelExperiment {
 		TimeDiscretization liborPeriods = new TimeDiscretizationFromArray(0.0, 10, 0.5); // Fixing time
 		
 		// Set initial undefaultable LIBOR rates
-		final double[] fixingTimes = liborPeriods.getAsDoubleArray();
-		final double[] uForwardRates = new double[] { 0.61 / 100.0, 0.61 / 100.0, 0.67 / 100.0, 0.73 / 100.0, 0.80 / 100.0, 0.92 / 100.0, 
-				1.11 / 100.0, 1.36 / 100.0, 1.60 / 100.0, 1.82 / 100.0, 2.02 / 100.0 };
+		// final double[] fixingTimes = liborPeriods.getAsDoubleArray();
+		final double[] fixingTimes = new double[] {0.5, 1.0, 2.0, 4.0, 8.0, 25.0};
+		
+		/*final double[] uForwardRates = new double[] { 0.61 / 100.0, 0.61 / 100.0, 0.67 / 100.0, 0.73 / 100.0, 0.80 / 100.0, 0.92 / 100.0, 
+				1.11 / 100.0, 1.36 / 100.0, 1.60 / 100.0, 1.82 / 100.0, 2.02 / 100.0 };*/
+		final double[] uForwardRates = { 0.035, 0.043, 0.05, 0.041, 0.035, 0.02 };
 		ForwardCurve uForwardCurve = ForwardCurveInterpolation.createForwardCurveFromForwards("forwardCurve",	fixingTimes, uForwardRates, 0.5);
 		
 		// Set Covariance model of undefaultable LIBORs
@@ -67,8 +70,10 @@ public class DefaultableModelExperiment {
 		
 		
 		// Set initial defaultable LIBOR rates
-		final double[] myForwardRates = new double[] { 0.71 / 100.0, 0.71 / 100.0, 0.74 / 100.0, 0.79 / 100.0, 0.90 / 100.0, 0.99 / 100.0, 
+		/*final double[] myForwardRates = new double[] { 0.71 / 100.0, 0.71 / 100.0, 0.74 / 100.0, 0.79 / 100.0, 0.90 / 100.0, 0.99 / 100.0, 
 				1.20 / 100.0, 1.44 / 100.0, 1.71 / 100.0, 1.94 / 100.0, 2.20 / 100.0 };
+		*/
+		final double[] myForwardRates = new double[] { 0.04, 0.049, 0.062, 0.049, 0.044, 0.031 };
 		ForwardCurve myForwardCurve = ForwardCurveInterpolation.createForwardCurveFromForwards("defaultableForwardCurve", fixingTimes, myForwardRates, 0.5);
 		
 		// Set Covariance model of defaultable LIBORs
@@ -306,6 +311,7 @@ public class DefaultableModelExperiment {
 		System.out.println("All negative Spreads:\n");
 		long counter = 0;
 		double min = 10.0, max = -10.0;
+		double minByMethod = 10.0;
 		long minIndex = -1;
 		long maxIndex = -1;
 		for(int component=0; component < liborTimes; component++) {
@@ -317,11 +323,13 @@ public class DefaultableModelExperiment {
 					numberPerComp = (long)time * (long)numberOfPaths;
 					break;
 				}
+				final RandomVariable spreadRV = newestModel.getLIBORSpreadAtGivenTimeIndex(myProcess, time, component);
+				minByMethod = Math.min(minByMethod, spreadRV.getMin());
 				for(int path=0; path < numberOfPaths; path++) {
 					
 					final long index = component * modelTimes * numberOfPaths + time * numberOfPaths + path;
 					// allSpreads[index]
-					final double spread = myModel.getLIBORSpreadAtGivenTimeIndex(myProcess2, time, component).get(path);
+					final double spread = spreadRV.get(path);
 					minIndex = Math.min(min, spread) == min? minIndex : index;
 					min = Math.min(min, spread);
 					maxIndex = Math.max(max, spread) == max? maxIndex : index;
@@ -346,7 +354,8 @@ public class DefaultableModelExperiment {
 		System.out.printf("LIBOR Index:  %12d \n", component);
 		System.out.printf("Time Index:   %12d \n", time);
 		System.out.printf("Path Index:   %12d \n", path);
-		System.out.printf("Min Value:    %12.8f \n\n", min);
+		System.out.printf("Min Value:    %12.8f \n", min);
+		System.out.printf("Alternative:  %12.8f \n\n", minByMethod);
 		
 		System.out.println("Maximum:");
 		path = maxIndex % numberOfPaths;
