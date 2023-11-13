@@ -512,8 +512,8 @@ public class DefaultableLIBORMarketModelFromCovarianceModel extends AbstractProc
 		propertyMap.put("interpolationmethod", interpolationMethod.toString());
 		
 		DefaultableLIBORCovarianceModel newCovarianceModel = getCovarianceModel();
-		if(newUndefaultableModel.getCovarianceModel() != newCovarianceModel.getUndefaultableCovarianceModel()) {
-			newCovarianceModel = newCovarianceModel.getCloneWithModifiedUndefaultableCovariance(newUndefaultableModel.getCovarianceModel());
+		if(newUndefaultableModel.getCovarianceModel() != newCovarianceModel.getNonDefaultableCovarianceModel()) {
+			newCovarianceModel = newCovarianceModel.getCloneWithModifiedNonDefaultableCovariance(newUndefaultableModel.getCovarianceModel());
 		}
 		return new DefaultableLIBORMarketModelFromCovarianceModel(newUndefaultableModel, newCovarianceModel, getForwardRateCurve(), getAnalyticModel(), propertyMap);
 	}
@@ -657,6 +657,100 @@ public class DefaultableLIBORMarketModelFromCovarianceModel extends AbstractProc
 	public RandomVariable getNumeraire(MonteCarloProcess process, double time) throws CalculationException {
 		return getUndefaultableLIBORModel().getNumeraire(getUndefaultableProcess(process), time);
 	}
+	
+	public RandomVariable getDefaultableNumeraire(final MonteCarloProcess process, final double time) throws CalculationException {
+		
+		// Check if time is on Libor Period Tenor:
+		final int liborTimeIndex = getLiborPeriodIndex(time);
+		if(liborTimeIndex >= 0)
+			return getDefaultableNumeraireAtLIBORIndex(process, liborTimeIndex);
+		
+		// Interpolate:
+		
+		RandomVariable numeraireUnadjusted;
+		final int upperIndex = -liborTimeIndex - 1;
+		final int lowerIndex = upperIndex - 1;
+		if (lowerIndex < 0) {
+			throw new IllegalArgumentException("Numeraire requested for time " + time + ". Unsupported");
+		}
+		if (measure == Measure.TERMINAL) {
+			/*
+			 * Due to time < T_{timeIndex+1} loop is needed.
+			 */
+			numeraireUnadjusted = getRandomVariableForConstant(1.0);
+			
+			int timeIndex = process.getTimeIndex(time); // We don't need Math.min(...) because time is always smaller than getLiborPeriod(liborIndex)
+			if(timeIndex < 0)
+				timeIndex = - timeIndex - 2;
+				
+			for (int liborIndex = upperIndex; liborIndex <= getNumberOfLIBORPeriods() - 1; liborIndex++) {
+				final RandomVariable forwardRate = getDefaultableLIBOR(process, timeIndex, liborIndex); 
+				final double periodLength = getLiborPeriodDiscretization().getTimeStep(liborIndex);
+				numeraireUnadjusted = numeraireUnadjusted.discount(forwardRate, periodLength);
+			}
+		}
+		else if (measure == Measure.SPOT) {
+			numeraireUnadjusted = getDefaultableNumeraireAtLIBORIndex(process, upperIndex);
+		}
+		else {
+			throw new IllegalArgumentException("Numeraire not implemented for specified measure.");
+		}
+		/*
+		 * Multiply with short period bond
+		 */
+		numeraireUnadjusted = numeraireUnadjusted.discount(getForwardRate(process, time, time, getLiborPeriod(upperIndex)), getLiborPeriod(upperIndex) - time);
+
+		return numeraireUnadjusted;
+	}
+	
+	public RandomVariable getDefaultableNumeraireAtLIBORIndex(final MonteCarloProcess process, final int liborTimeIndex) throws CalculationException {
+		
+		// Prevent Resource allocation for easiest cases:
+		if((liborTimeIndex == 0 && measure == Measure.SPOT) || 
+				(liborTimeIndex == getNumberOfLIBORPeriods() - 1 && measure == Measure.TERMINAL)) {
+			return getRandomVariableForConstant(1.0);
+		}
+		
+		
+		RandomVariable numeraireUnadjusted = null;
+		int timeIndex = process.getTimeIndex(getLiborPeriod(liborTimeIndex));
+		if(timeIndex < 0) {
+			timeIndex = - timeIndex - 1; // Originally - 1 but we want to get prev. time index
+		}
+		
+		if (measure == Measure.TERMINAL) {
+			// Initialize to 1.0
+			numeraireUnadjusted = getRandomVariableForConstant(1.0);
+
+			/*
+			 * Due to time < T_{timeIndex+1} loop is needed.
+			 */
+			for (int liborIndex = liborTimeIndex; liborIndex < getNumberOfLIBORPeriods(); liborIndex++) {
+				final RandomVariable forwardRate = getDefaultableLIBOR(process, timeIndex, liborIndex);
+				final double periodLength = getLiborPeriodDiscretization().getTimeStep(liborIndex);
+				numeraireUnadjusted = numeraireUnadjusted.discount(forwardRate, periodLength);
+			}
+		}
+		else if (measure == Measure.SPOT) {
+			/*
+			 * If numeraire is not N(0), multiply (1 + L(Ti-1)*dt) on N(Ti-1)
+			 */
+			if (liborTimeIndex != 0) {
+				final double periodLength = getLiborPeriodDiscretization().getTimeStep(liborTimeIndex - 1);
+				final RandomVariable forwardRate = getDefaultableLIBOR(process, timeIndex, liborTimeIndex - 1);
+				// Recursive Function. Maybe better to just do for loop.
+				numeraireUnadjusted = getDefaultableNumeraireAtLIBORIndex(process, liborTimeIndex - 1).accrue(forwardRate, periodLength);
+			}
+			else {
+				numeraireUnadjusted = getRandomVariableForConstant(1.0);
+			}
+		} else {
+			throw new IllegalArgumentException("Numeraire not implemented for specified measure.");
+		}
+		return numeraireUnadjusted;
+	}
+	
+	
 	
 	
 	

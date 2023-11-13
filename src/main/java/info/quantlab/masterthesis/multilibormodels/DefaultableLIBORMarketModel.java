@@ -159,6 +159,15 @@ public interface DefaultableLIBORMarketModel extends LIBORMarketModel {
 	RandomVariable getDefaultableBond(MonteCarloProcess process, final double time, final double maturity) throws CalculationException;
 	
 	/**
+	 * Gets a defaultable Value associated with this product, that can be seen as a "defaultable Numeraire". Taking the Expectation of this
+	 * @param process
+	 * @param time
+	 * @return
+	 * @throws CalculationException - Thrown if model fails to calculate the random variable.
+	 */
+	RandomVariable getDefaultableNumeraire(final MonteCarloProcess process, final double time) throws CalculationException;
+	
+	/**
 	 * Gets the probability of survival until maturity time, given default has not yet happened at evaluation time. Note that this 
 	 * is a conditional probability conditioned on F<sub>t</sub> <b>and</b> on {&tau; &gt; t}
 	 * @param process The simulation process of the model.

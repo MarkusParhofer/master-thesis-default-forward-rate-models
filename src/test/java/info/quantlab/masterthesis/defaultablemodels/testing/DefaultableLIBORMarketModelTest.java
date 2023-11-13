@@ -146,7 +146,7 @@ public class DefaultableLIBORMarketModelTest {
 		System.out.println("Matrix of FL factors at time 0:");
 		
 		for(int row = 0; row < freeParameters.length; row++) {
-			final RandomVariable[] factorLoadings = covModel.getUndefaultableCovarianceModel().getFactorLoading(0.0, row, null);
+			final RandomVariable[] factorLoadings = covModel.getNonDefaultableCovarianceModel().getFactorLoading(0.0, row, null);
 			for(int col = 0; col < factorLoadings.length; col++) {
 				System.out.printf("%12.8f      ", factorLoadings[col].doubleValue());
 			}
@@ -161,7 +161,7 @@ public class DefaultableLIBORMarketModelTest {
 		RandomVariable[] liborsAtZero = defaultableModel.getInitialValue(process);
 		for(int row = 0; row < defaultableModel.getNumberOfLIBORPeriods(); row++) {
 			for(int col = 0; col < defaultableModel.getNumberOfLIBORPeriods(); col++) {
-				final RandomVariable covariance = covModel.getUndefaultableCovarianceModel().getCovariance(0.0, row, col, null);
+				final RandomVariable covariance = covModel.getNonDefaultableCovarianceModel().getCovariance(0.0, row, col, null);
 				System.out.printf("%10.6f      ", covariance.doubleValue());
 			}
 			System.out.printf("| %5s ", " ");

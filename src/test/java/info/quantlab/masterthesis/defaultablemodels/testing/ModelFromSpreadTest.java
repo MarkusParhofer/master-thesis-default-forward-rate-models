@@ -10,7 +10,6 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -31,6 +30,7 @@ import info.quantlab.masterthesis.multilibormodels.DefaultableLIBORCovarianceMod
 import info.quantlab.masterthesis.multilibormodels.DefaultableLIBORCovarianceWithGuaranteedPositiveSpread;
 import info.quantlab.masterthesis.multilibormodels.DefaultableLIBORFromSpreadDynamic;
 import info.quantlab.masterthesis.multilibormodels.DefaultableLIBORMarketModel;
+import info.quantlab.masterthesis.products.DefaultableZeroCouponBond;
 import net.finmath.exception.CalculationException;
 import net.finmath.marketdata.model.curves.DiscountCurveFromForwardCurve;
 import net.finmath.marketdata.model.curves.ForwardCurve;
@@ -88,7 +88,7 @@ public class ModelFromSpreadTest extends info.quantlab.debug.Time{
 	
 	// Simulation parameters:
 	private static final int numberOfPaths = 10000;
-	private static final int bmSeed = 15978;
+	private static final int bmSeed = 3124;
 	
 	// Non Defaultable Model Parameters:
 	private static final int numberOfFactors = 5; // No Factor reduction
@@ -98,7 +98,7 @@ public class ModelFromSpreadTest extends info.quantlab.debug.Time{
 	private static final double liborPeriodLength = 2.0;
 	private static final int numberOfLiborPeriods = 5;
 
-	private final static String stateSpace = "NORMAL";
+	private final static String stateSpace = "NORMAL"; /* No support for the lognormal model (of the defaultable LIBOR) supplied yet*/
 	
 	private static int runCount = 0; /* For saving plots*/
 	
@@ -111,7 +111,7 @@ public class ModelFromSpreadTest extends info.quantlab.debug.Time{
 	private static DecimalFormat formatterValue		= new DecimalFormat(" ##0.000%;-##0.000%", new DecimalFormatSymbols(Locale.ENGLISH));
 	// Unnecessary: private static DecimalFormat formatterMoneyness	= new DecimalFormat(" 000.0%;-000.0%", new DecimalFormatSymbols(Locale.ENGLISH));
 	private static DecimalFormat formatterDeviation	= new DecimalFormat(" 0.00000E00;-0.00000E00", new DecimalFormatSymbols(Locale.ENGLISH));
-	private static DecimalFormat formatterLong	= new DecimalFormat(" ##0.000;-##0.000", new DecimalFormatSymbols(Locale.ENGLISH));
+	// Unnecessary: private static DecimalFormat formatterLong	= new DecimalFormat(" ##0.000;-##0.000", new DecimalFormatSymbols(Locale.ENGLISH));
 
 	
 
@@ -178,7 +178,7 @@ public class ModelFromSpreadTest extends info.quantlab.debug.Time{
 		plot.setTitle("Average of Non- and Defaultable LIBORs and Spreads");
 		plot.setIsLegendVisible(true);
 		
-		boolean saveFileWithSpecs = true;
+		boolean saveFileWithSpecs = false;
 		
 		if(saveFileWithSpecs) {
 			String timeStamp = new SimpleDateFormat("MM-dd-yyyy_HH-mm-ss-SSSS").format(new Date());
@@ -203,7 +203,7 @@ public class ModelFromSpreadTest extends info.quantlab.debug.Time{
 		double[][] freeParameters = covModel.getFreeParameterMatrix();
 		System.out.println("Matrix of non defaultable FL      |      Free Parameters:");
 		for(int row = 0; row < freeParameters.length; row++) {
-			RandomVariable[] flMatrixNonDef = covModel.getUndefaultableCovarianceModel().getFactorLoading(0.0, row, null);
+			RandomVariable[] flMatrixNonDef = covModel.getNonDefaultableCovarianceModel().getFactorLoading(0.0, row, null);
 			for(int col = 0; col < flMatrixNonDef.length; col++) {
 				System.out.printf("%9.4f      ", flMatrixNonDef[col].doubleValue());
 			}
@@ -346,6 +346,27 @@ public class ModelFromSpreadTest extends info.quantlab.debug.Time{
 		Assert.assertTrue(Math.abs(maxAbsDeviation) < 8E-3);
 	}
 	
+	
+	@Test
+	public void testBond() throws CalculationException {
+		System.out.println("\nTesting Bond Prices:\nTime     Simulation       Analytic      Deviation");
+		double absDev = 0.0;
+		for(double maturity = 2.0; maturity < liborPeriodLength * (numberOfLiborPeriods - 1); maturity+= liborPeriodLength) {
+			DefaultableZeroCouponBond bond = new DefaultableZeroCouponBond(maturity);
+			final double value = bond.getValue(model);
+			final double realValue = ((DefaultableLIBORMarketModel)model.getModel()).getDefaultableBond(model.getProcess(), 0.0, maturity).getAverage();
+			
+			final double deviation = realValue - value;
+			System.out.println(formatterMaturity.format(maturity) + "      " + formatterValue.format(value) + "      " + formatterValue.format(realValue)+ "      " + formatterDeviation.format(deviation));
+			absDev = Math.max(absDev, Math.abs(deviation));
+		}
+		
+		System.out.println("\nMaximal absolute Deviation: " + formatterDeviation.format(absDev));
+		
+		System.out.println("\n" + "_".repeat(300) + "\n");
+		
+		Assert.assertTrue(absDev < 1E-3);
+	}
 	
 	private static LIBORModelMonteCarloSimulationModel getValuationModel(double simulationTimeDelta, int numberOfExtraFactors, String simulationProduct, String measure, double[] initialRatesDefaultable) throws CalculationException {
 		
@@ -588,7 +609,7 @@ public class ModelFromSpreadTest extends info.quantlab.debug.Time{
 
 			}
 			{
-				AbstractLIBORCovarianceModelParametric nonDefCovModel = (AbstractLIBORCovarianceModelParametric)((DefaultableLIBORFromSpreadDynamic)model.getModel()).getCovarianceModel().getUndefaultableCovarianceModel();
+				AbstractLIBORCovarianceModelParametric nonDefCovModel = (AbstractLIBORCovarianceModelParametric)((DefaultableLIBORFromSpreadDynamic)model.getModel()).getCovarianceModel().getNonDefaultableCovarianceModel();
 				myWriter.write("DefaultableCovarianceModel: " + nonDefCovModel.getClass() + "\n");
 				myWriter.write("NumberOfFactors=" + nonDefCovModel.getNumberOfFactors() + "\n");
 				myWriter.write("Parameters=[");

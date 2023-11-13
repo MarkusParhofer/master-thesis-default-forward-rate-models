@@ -5,10 +5,10 @@ import net.finmath.stochastic.RandomVariable;
 import net.finmath.stochastic.Scalar;
 
 public interface DefaultableLIBORCovarianceModel extends LIBORCovarianceModel {
-
-	public LIBORCovarianceModel getUndefaultableCovarianceModel();
 	
-	public DefaultableLIBORCovarianceModel getCloneWithModifiedUndefaultableCovariance(LIBORCovarianceModel newUndefaultableCovarianceModel);
+	public LIBORCovarianceModel getNonDefaultableCovarianceModel();
+	
+	public DefaultableLIBORCovarianceModel getCloneWithModifiedNonDefaultableCovariance(LIBORCovarianceModel newUndefaultableCovarianceModel);
 	
 	/**
 	 * Get the parameters of determining this parametric
@@ -38,7 +38,7 @@ public interface DefaultableLIBORCovarianceModel extends LIBORCovarianceModel {
 	/**
 	 * Gets the number of Parameters.
 	 */
-	public int getNumberOfParameter();
+	public int getNumberOfParameters();
 	
 	/**
 	 * Return an instance of this model using a new set of parameters.
@@ -56,13 +56,7 @@ public interface DefaultableLIBORCovarianceModel extends LIBORCovarianceModel {
 	 * @param parameters The new set of parameters.
 	 * @return An instance of AbstractLIBORCovarianceModelParametric with modified parameters.
 	 */
-	public default DefaultableLIBORCovarianceModel getCloneWithModifiedParameters(final RandomVariable[] parameters) {
-		final double[] parameterAsDouble = new double[parameters.length];
-		for(int i=0; i<parameterAsDouble.length; i++) {
-			parameterAsDouble[i] = parameters[i].doubleValue();
-		}
-		return getCloneWithModifiedParameters(parameterAsDouble);
-	}
+	public DefaultableLIBORCovarianceModel getCloneWithModifiedParameters(final RandomVariable[] parameters);
 
 	/**
 	 * Returns the Factor Loading for the specified time and component index. While the realizations are separated here, the component index is still
@@ -84,11 +78,9 @@ public interface DefaultableLIBORCovarianceModel extends LIBORCovarianceModel {
 		throw new UnsupportedOperationException("Spread dynamic is not implemented for this covariance Model!");
 	}
 	
-	public default RandomVariable[] getFactorLoadingOfSpread(double time, int component, RandomVariable[] realizationAtTimeIndex) {
-		int timeIndex = getTimeDiscretization().getTimeIndex(time);
-		if(timeIndex < 0)
-			timeIndex = - timeIndex - 2;
-		
-		return getFactorLoadingOfSpread(timeIndex, component, realizationAtTimeIndex);
+	public default boolean isSpreadModelLogNormal() {
+		throw new UnsupportedOperationException("Covariance Model knows nothing about the Spread!");
 	}
+	
+	public RandomVariable[] getFactorLoadingOfSpread(double time, int component, RandomVariable[] realizationAtTimeIndex);
 }
