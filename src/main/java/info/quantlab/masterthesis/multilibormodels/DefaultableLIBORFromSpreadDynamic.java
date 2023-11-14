@@ -12,6 +12,7 @@ import info.quantlab.masterthesis.functional.Functional;
 import net.finmath.exception.CalculationException;
 import net.finmath.marketdata.model.AnalyticModel;
 import net.finmath.marketdata.model.curves.DiscountCurve;
+import net.finmath.marketdata.model.curves.DiscountCurveFromForwardCurve;
 import net.finmath.marketdata.model.curves.ForwardCurve;
 import net.finmath.montecarlo.IndependentIncrements;
 import net.finmath.montecarlo.interestrate.LIBORMarketModel;
@@ -56,10 +57,11 @@ public class DefaultableLIBORFromSpreadDynamic  extends AbstractProcessModel imp
 	private final LIBORMarketModel _nonDefaultableModel;
 	private final DefaultableLIBORCovarianceModel _covarianceModel;
 	private final ForwardCurve _forwardRateCurve;
+	private final DiscountCurve _defaultableDiscountCurve;
 	private final AnalyticModel _analyticModel;
 	
 	private double valueCap = 1E3d;
-	// private double valueFloor = Double.MIN_NORMAL;
+	private double valueFloor = Double.MIN_NORMAL;
 	
 	
 	// Mutual/Transient Fields
@@ -123,11 +125,22 @@ public class DefaultableLIBORFromSpreadDynamic  extends AbstractProcessModel imp
 								+ "Warning: Key \"simulationmodel\" ignored, value unknown. Value: " + propertyMap.get(key).toUpperCase() + "\n>");
 					}
 					if(simulationModel == SimulationModel.SPREADS) {
-						try {
-							spreadIsLogNormal = covarianceModel.isSpreadModelLogNormal();
-						} catch (UnsupportedOperationException ex) {
-							spreadIsLogNormal = false;
+						spreadIsLogNormal = covarianceModel.isSpreadModelLogNormal();
+						if(spreadIsLogNormal) {
+							try {
+								for(int i = 0; i < getNumberOfLIBORPeriods(); i++) {
+									final double spread = getDefaultableLIBOR(null,  0, i).sub(getUndefaultableLIBOR(null, 0, i)).doubleValue();
+									if(spread == 0.0) {
+										spreadIsLogNormal = false;
+										break;
+									}
+								}
+							} catch(CalculationException ex) {
+								spreadIsLogNormal = false;
+							}
 						}
+						if(!spreadIsLogNormal)
+							valueFloor = Double.NEGATIVE_INFINITY;
 					}
 					break;
 				default:
@@ -146,6 +159,7 @@ public class DefaultableLIBORFromSpreadDynamic  extends AbstractProcessModel imp
 		_nonDefaultableModel = undefaultableModel;
 		_covarianceModel = covarianceModel;
 		_forwardRateCurve = forwardRateCurve;
+		_defaultableDiscountCurve = new DiscountCurveFromForwardCurve(forwardRateCurve);
 		_analyticModel = analyticModel;
 	}
 
@@ -263,7 +277,8 @@ public class DefaultableLIBORFromSpreadDynamic  extends AbstractProcessModel imp
 		if(simulationModel == SimulationModel.SPREADS) {
 			for(int liborIndex = 0; liborIndex < getNumberOfLIBORPeriods(); liborIndex++) {
 				initialStateRV[getSpreadComponentIndex(liborIndex)] = initialStateRV[liborIndex].bus(initialStatesD[liborIndex]);
-				initialStateRV[getSpreadComponentIndex(liborIndex)] = initialStateRV[getSpreadComponentIndex(liborIndex)].log();
+				if(spreadIsLogNormal)
+					initialStateRV[getSpreadComponentIndex(liborIndex)] = initialStateRV[getSpreadComponentIndex(liborIndex)].log();
 			}
 		}
 		else {
@@ -280,6 +295,7 @@ public class DefaultableLIBORFromSpreadDynamic  extends AbstractProcessModel imp
 	public RandomVariable[] getDrift(MonteCarloProcess process, int timeIndex, RandomVariable[] realizationAtTimeIndex,	RandomVariable[] realizationPredictor) {
 		final RandomVariable[] nonDefaultableDriftVector = getDriftOfUndefaultableModel(process, timeIndex, realizationAtTimeIndex, realizationPredictor);
 		RandomVariable[] fullDriftVector = Arrays.copyOf(nonDefaultableDriftVector, getNumberOfComponents());
+		
 		if(simulationModel == SimulationModel.SPREADS) {
 			RandomVariable[] spreadDrift = getDriftOfSpread(process, timeIndex, realizationAtTimeIndex, realizationPredictor, nonDefaultableDriftVector);
 			for(int i=getNumberOfLIBORPeriods(); i < getNumberOfComponents(); i++) {
@@ -337,13 +353,13 @@ public class DefaultableLIBORFromSpreadDynamic  extends AbstractProcessModel imp
 		// If non-defaultable drift is null we fetch it. 
 		if(nonDefaultableDrifts == null)
 			nonDefaultableDrifts = getDriftOfUndefaultableModel(process, timeIndex, realizationAtTimeIndex, realizationPredictor);
-		
+	
 		RandomVariable[] realizationAllLIBORS = null;
 		if(realizationAtTimeIndex != null) {
 			realizationAllLIBORS = new RandomVariable[getNumberOfComponents()];
 			for(int libor=0; libor < getNumberOfLIBORPeriods(); libor++) {
 				realizationAllLIBORS[libor] = realizationAtTimeIndex[libor];
-				realizationAllLIBORS[libor + getNumberOfLIBORPeriods()] = realizationAtTimeIndex[libor].add(realizationAtTimeIndex[libor + getNumberOfLIBORPeriods()]);
+				realizationAllLIBORS[getDefaultableComponentIndex(libor)] = realizationAtTimeIndex[libor].add(realizationAtTimeIndex[getSpreadComponentIndex(libor)]);
 				
 			}
 		}
@@ -353,13 +369,13 @@ public class DefaultableLIBORFromSpreadDynamic  extends AbstractProcessModel imp
 			realizationPredAllLIBORS = new RandomVariable[getNumberOfComponents()];
 			for(int libor=0; libor < getNumberOfLIBORPeriods(); libor++) {
 				realizationPredAllLIBORS[libor] = realizationPredictor[libor];
-				realizationPredAllLIBORS[libor + getNumberOfLIBORPeriods()] = realizationPredictor[libor].add(realizationPredictor[libor + getNumberOfLIBORPeriods()]);
+				realizationPredAllLIBORS[getDefaultableComponentIndex(libor)] = realizationPredictor[libor].add(realizationPredictor[getSpreadComponentIndex(libor)]);
 				
 			}
 		}
 		
 		drift = getDriftDefaultableInternally(process, timeIndex, realizationAllLIBORS, realizationPredAllLIBORS);
-		
+				
 		// TODO Add functionality of lognormal. I.e. add 0.5*sigma^2 to both drifts and multiply with realization
 		
 		for(int libor=0; libor < getNumberOfLIBORPeriods(); libor++) {
@@ -377,50 +393,6 @@ public class DefaultableLIBORFromSpreadDynamic  extends AbstractProcessModel imp
 			}
 		}
 
-		// This implementation only holds for one type of drift:
-		/*
-		RandomVariable[] realizationOfAllLIBORS = new RandomVariable[getNumberOfComponents()];
-		int component = 0;
-		for(; component < getNumberOfLIBORPeriods(); component++) {
-			realizationOfAllLIBORS[component] = realizationAtTimeIndex[component];
-		}
-		for(; component < getNumberOfComponents(); component++) {
-			realizationOfAllLIBORS[component] = realizationAtTimeIndex[component - getNumberOfLIBORPeriods()]
-					.add(realizationAtTimeIndex[component]); // Add Spread (we have simulationModel == SPREADS)
-		}
-		
-		// Fetch all factor
-		RandomVariable[][] factorLoadingsDef = new RandomVariable[getNumberOfLIBORPeriods()][];
-		
-		
-		for(int factor = getUndefaultableLIBORModel().getNumberOfFactors(); factor < getNumberOfFactors(); factor++) {
-			RandomVariable innerSum = zero;
-			for(int liborIndex = firstNonZeroComponent; liborIndex < getNumberOfLIBORPeriods(); liborIndex++) {
-				
-				final double deltaT = getLiborPeriod(liborIndex + 1) - getLiborPeriod(liborIndex);
-				
-				if(factor == 0) {
-					drift[liborIndex] = drift[liborIndex].mult(deltaT).div(realizationAtTimeIndex[liborIndex].mult(deltaT).add(1.0));
-					factorLoadingsDef[liborIndex] = getCovarianceModel().getFactorLoading(time, getDefaultableComponentIndex(liborIndex), realizationOfAllLIBORS);
-				}
-				
-				innerSum = innerSum.add(factorLoadingsDef[liborIndex][factor].mult(deltaT).div(realizationOfAllLIBORS[getSpreadComponentIndex(liborIndex)].mult(deltaT).add(1.0)));
-				
-				// Ideally this is just a Constant
-				RandomVariable freeParam = getFactorLoadingOfSpread(process, timeIndex, timeIndex, realizationAtTimeIndex)[factor];
-				
-				drift[liborIndex] = drift[liborIndex].addProduct(innerSum, freeParam);
-			}
-		}
-		
-		
-		// Spread is lognormal hence we apply drift adjustment: µ - 0.5*(sigma^2) = µ - 0.5*sum(lambda*lambda)
-		for(int componentIndex = firstNonZeroComponent; componentIndex < getNumberOfLIBORPeriods(); componentIndex++) {
-			RandomVariable[] factorLoadingSpread = getFactorLoadingOfSpread(process, timeIndex, timeIndex, realizationAtTimeIndex);
-			final RandomVariable variance = getCovarianceModel().getCovariance(time, componentIndex + getNumberOfLIBORPeriods(), componentIndex + getNumberOfLIBORPeriods(), realizationAtTimeIndex);
-			drift[componentIndex] = drift[componentIndex].addProduct(variance, -0.5);
-		}
-		*/
 		return drift;
 	}
 	
@@ -466,7 +438,16 @@ public class DefaultableLIBORFromSpreadDynamic  extends AbstractProcessModel imp
 		for(int component = getNumberOfLIBORPeriods(); component < getNumberOfComponents(); component++) {
 			realizationForCovariance[component] = realizationForCovariance[component - getNumberOfLIBORPeriods()].add(realizationAtTimeIndex[component]);
 		}
-		RandomVariable[] factorLoading = null;
+		RandomVariable[] factorLoading = getCovarianceModel().getFactorLoading(process.getTime(timeIndex), getDefaultableComponentIndex(componentIndex), realizationForCovariance);
+		
+		RandomVariable[] factorLoadingNonDef = getCovarianceModel().getFactorLoading(process.getTime(timeIndex), componentIndex, realizationForCovariance);
+		for(int i =0; i < getNumberOfFactors(); i++) {
+			factorLoading[i] = factorLoading[i].sub(factorLoadingNonDef[i]);
+			if(spreadIsLogNormal) {
+				factorLoading[i] = factorLoading[i].div(realizationAtTimeIndex[getSpreadComponentIndex(componentIndex)]);
+			}
+		}
+		/*
 		try {
 			factorLoading = getCovarianceModel().getFactorLoadingOfSpread(process.getTime(timeIndex), componentIndex, realizationForCovariance);
 		} catch(UnsupportedOperationException ex) {
@@ -479,7 +460,7 @@ public class DefaultableLIBORFromSpreadDynamic  extends AbstractProcessModel imp
 				if(spreadIsLogNormal)
 					factorLoading[i] = factorLoading[i].div(realizationAtTimeIndex[getSpreadComponentIndex(componentIndex)]);
 			}
-		}
+		}*/
 		return factorLoading;
 	}
 	
@@ -498,10 +479,10 @@ public class DefaultableLIBORFromSpreadDynamic  extends AbstractProcessModel imp
 		if(!Double.isInfinite(valueCap)) {
 			value = value.cap(valueCap);
 		}
-		/*
+		
 		if(!Double.isInfinite(-valueFloor)) {
 			value = value.floor(valueFloor);
-		}*/
+		}
 		return value;
 	}
 
@@ -513,11 +494,8 @@ public class DefaultableLIBORFromSpreadDynamic  extends AbstractProcessModel imp
 		
 		RandomVariable value = randomVariable;
 		
-		if(simulationModel == SimulationModel.SPREADS && spreadIsLogNormal) {
+		if(simulationModel == SimulationModel.SPREADS && spreadIsLogNormal || simulationModel == SimulationModel.LIBORS && stateSpace == StateSpace.LOGNORMAL) {
 			value = value.log();			
-		}
-		else if(stateSpace == StateSpace.LOGNORMAL){
-			value = value.log();
 		}
 		
 		return value;
@@ -541,6 +519,9 @@ public class DefaultableLIBORFromSpreadDynamic  extends AbstractProcessModel imp
 
 	@Override
 	public RandomVariable getDefaultableForwardRate(MonteCarloProcess process, double time, double periodStart, double periodEnd) throws CalculationException {
+		if(periodStart == periodEnd)
+			return Scalar.of(0.0);
+		
 		final int periodStartIndex    = getLiborPeriodIndex(periodStart);
 		final int periodEndIndex      = getLiborPeriodIndex(periodEnd);
 
@@ -830,16 +811,28 @@ public class DefaultableLIBORFromSpreadDynamic  extends AbstractProcessModel imp
 	
 	@Override
 	public RandomVariable getDefaultableNumeraire(final MonteCarloProcess process, final double time) throws CalculationException {
+		RandomVariable numeraire = getDefaultableNumeraireUnadjusted(process, time);
+		
+		// Adjust:
+		final RandomVariable zeroBondAtTimeZero =  getNumeraireDefaultableZeroBondAsOfTimeZero(process, time);
+		final double expectedZeroBond = numeraire.invert().mult(getDefaultableNumeraireUnadjusted(process, 0.0)).getAverage();
+		numeraire = numeraire.mult(expectedZeroBond).div(zeroBondAtTimeZero);
+		
+		return numeraire;
+	}
+	
+	
+	public RandomVariable getDefaultableNumeraireUnadjusted(final MonteCarloProcess process, final double time) throws CalculationException {
 		
 		// Check if time is on Libor Period Tenor:
 		final int liborTimeIndex = getLiborPeriodIndex(time);
 		if(liborTimeIndex >= 0)
-			return getDefaultableNumeraireAtLIBORIndex(process, liborTimeIndex);
+			return getDefaultableNumeraireUnadjustedAtLIBORIndex(process, liborTimeIndex);
 		
 		// Interpolate:
 		
 		RandomVariable numeraireUnadjusted;
-		final int upperIndex = -liborTimeIndex - 1;
+		final int upperIndex = - liborTimeIndex - 1;
 		final int lowerIndex = upperIndex - 1;
 		if (lowerIndex < 0) {
 			throw new IllegalArgumentException("Numeraire requested for time " + time + ". Unsupported");
@@ -861,7 +854,7 @@ public class DefaultableLIBORFromSpreadDynamic  extends AbstractProcessModel imp
 			}
 		}
 		else if (measure == Measure.SPOT) {
-			numeraireUnadjusted = getDefaultableNumeraireAtLIBORIndex(process, upperIndex);
+			numeraireUnadjusted = getDefaultableNumeraireUnadjustedAtLIBORIndex(process, upperIndex);
 		}
 		else {
 			throw new IllegalArgumentException("Numeraire not implemented for specified measure.");
@@ -874,7 +867,7 @@ public class DefaultableLIBORFromSpreadDynamic  extends AbstractProcessModel imp
 		return numeraireUnadjusted;
 	}
 	
-	public RandomVariable getDefaultableNumeraireAtLIBORIndex(final MonteCarloProcess process, final int liborTimeIndex) throws CalculationException {
+	public RandomVariable getDefaultableNumeraireUnadjustedAtLIBORIndex(final MonteCarloProcess process, final int liborTimeIndex) throws CalculationException {
 		
 		// Prevent Resource allocation for easiest cases:
 		if((liborTimeIndex == 0 && measure == Measure.SPOT) || 
@@ -910,7 +903,7 @@ public class DefaultableLIBORFromSpreadDynamic  extends AbstractProcessModel imp
 				final double periodLength = getLiborPeriodDiscretization().getTimeStep(liborTimeIndex - 1);
 				final RandomVariable forwardRate = getDefaultableLIBOR(process, timeIndex, liborTimeIndex - 1);
 				// Recursive Function. Maybe better to just do for loop.
-				numeraireUnadjusted = getDefaultableNumeraireAtLIBORIndex(process, liborTimeIndex - 1).accrue(forwardRate, periodLength);
+				numeraireUnadjusted = getDefaultableNumeraireUnadjustedAtLIBORIndex(process, liborTimeIndex - 1).accrue(forwardRate, periodLength);
 			}
 			else {
 				numeraireUnadjusted = getRandomVariableForConstant(1.0);
@@ -1096,18 +1089,19 @@ public class DefaultableLIBORFromSpreadDynamic  extends AbstractProcessModel imp
 		}
 		else if(measure == Measure.TERMINAL) {
 			// Calculate drift for the component componentIndex (starting at firstForwardRateIndex, others are zero)
+			// Calculate drift for the component componentIndex (starting at firstForwardRateIndex, others are zero)
 			for(int liborIndex=getNumberOfLIBORPeriods()-1; liborIndex>=firstForwardRateIndex; liborIndex--) {
-				final double periodLength = getLiborPeriodDiscretization().getTimeStep(liborIndex);
-				final RandomVariable forwardRate = realizationAtTimeIndex[getDefaultableComponentIndex(liborIndex)];
-				
-				RandomVariable oneStepMeasureTransform = Scalar.of(-periodLength).discount(forwardRate, periodLength);
+				final double			periodLength	= getLiborPeriodDiscretization().getTimeStep(liborIndex);
+				final RandomVariable	forwardRate		= realizationAtTimeIndex[getDefaultableComponentIndex(liborIndex)];
+				RandomVariable			oneStepMeasureTransform = Scalar.of(-periodLength).discount(forwardRate, periodLength);
+
 				if(stateSpace == StateSpace.LOGNORMAL) {
 					oneStepMeasureTransform = oneStepMeasureTransform.mult(forwardRate);
 				}
 
-				final RandomVariable[] factorLoading = getFactorLoadingOfDefaultableModel(process, timeIndex, liborIndex, realizationAtTimeIndex);
+				final RandomVariable[]	factorLoading   	= getFactorLoadingOfDefaultableModel(process, timeIndex, liborIndex, realizationAtTimeIndex);
 				drift[liborIndex] = drift[liborIndex].addSumProduct(factorLoadingsSums, factorLoading);
-				for(int factorIndex = 0; factorIndex < factorLoading.length; factorIndex++) {
+				for(int factorIndex=0; factorIndex<factorLoading.length; factorIndex++) {
 					factorLoadingsSums[factorIndex] = factorLoadingsSums[factorIndex].addProduct(oneStepMeasureTransform, factorLoading[factorIndex]);
 				}
 			}
@@ -1312,6 +1306,52 @@ public class DefaultableLIBORFromSpreadDynamic  extends AbstractProcessModel imp
 		}
 
 		return driftAdjustment;
+	}
+	
+	private RandomVariable getNumeraireDefaultableZeroBondAsOfTimeZero(final MonteCarloProcess process, final double time) {
+		final boolean interpolateDFsOnLiborPeriodDiscretization = true;
+
+		final TimeDiscretization timeDiscretizationForCurves = interpolateDFsOnLiborPeriodDiscretization ? getLiborPeriodDiscretization() : process.getTimeDiscretization();
+
+		final int timeIndex = timeDiscretizationForCurves.getTimeIndex(time);
+		if(timeIndex >= 0) {
+			return getNumeraireDefaultableZeroBondAsOfTimeZero(process, timeIndex);
+		}
+		else {
+			// Interpolation
+			final int timeIndexPrev = Math.min(-timeIndex-2, getLiborPeriodDiscretization().getNumberOfTimes()-2);
+			final int timeIndexNext = timeIndexPrev+1;
+			final double timePrev = timeDiscretizationForCurves.getTime(timeIndexPrev);
+			final double timeNext = timeDiscretizationForCurves.getTime(timeIndexNext);
+			final RandomVariable numeraireAdjustmentPrev = getNumeraireDefaultableZeroBondAsOfTimeZero(process, timeIndexPrev);
+			final RandomVariable numeraireAdjustmentNext = getNumeraireDefaultableZeroBondAsOfTimeZero(process, timeIndexNext);
+			return numeraireAdjustmentPrev.mult(numeraireAdjustmentNext.div(numeraireAdjustmentPrev).pow((time-timePrev)/(timeNext-timePrev)));
+		}
+	}
+
+	private RandomVariable getNumeraireDefaultableZeroBondAsOfTimeZero(final MonteCarloProcess process, final int timeIndex) {
+		final boolean interpolateDFsOnLiborPeriodDiscretization = true;
+
+		final TimeDiscretization timeDiscretizationForCurves = interpolateDFsOnLiborPeriodDiscretization ? getLiborPeriodDiscretization() : process.getTimeDiscretization();
+		final double time = timeDiscretizationForCurves.getTime(timeIndex);
+		
+		RandomVariable deterministicNumeraireAdjustment = null;
+		
+		final double dfInitial = _defaultableDiscountCurve.getDiscountFactor(null, timeDiscretizationForCurves.getTime(0));
+		deterministicNumeraireAdjustment = getRandomVariableForConstant(dfInitial);
+		if(time == 0.0)
+			return deterministicNumeraireAdjustment;
+		for(int i=0; i<timeDiscretizationForCurves.getNumberOfTimeSteps(); i++) {
+			final double dfPrev = _defaultableDiscountCurve.getDiscountFactor(null, timeDiscretizationForCurves.getTime(i));
+			final double dfNext = _defaultableDiscountCurve.getDiscountFactor(null, timeDiscretizationForCurves.getTime(i+1));
+			final double timeStep = timeDiscretizationForCurves.getTimeStep(i);
+			final double timeNext = timeDiscretizationForCurves.getTime(i+1);
+			final RandomVariable forwardRate = getRandomVariableForConstant((dfPrev / dfNext - 1.0) / timeStep);
+			deterministicNumeraireAdjustment = deterministicNumeraireAdjustment.discount(forwardRate, timeStep);
+			if(timeNext == time)
+				return deterministicNumeraireAdjustment;
+		}
+		return deterministicNumeraireAdjustment;
 	}
 	
 }

@@ -10,8 +10,8 @@ import net.finmath.stochastic.RandomVariable;
 /**
  * This class implements the valuation of a zero coupon bond.
  *
- * @author Christian Fries
- * @version 1.1
+ * @author Markus Parhofer
+ * @version 1.0
  */
 public class DefaultableZeroCouponBond extends AbstractDefaultableTermStructureProduct {
 

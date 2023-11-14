@@ -14,14 +14,10 @@ import net.finmath.montecarlo.model.ProcessModel;
 import net.finmath.montecarlo.process.MonteCarloProcess;
 import net.finmath.montecarlo.process.MonteCarloProcessFromProcessModel;
 import net.finmath.stochastic.RandomVariable;
+import net.finmath.stochastic.Scalar;
 
 public class EulerSchemeFromProcessModel  extends MonteCarloProcessFromProcessModel {
-	private static boolean isUseMultiThreadding;
-	static {
-		// Default value is true
-		isUseMultiThreadding = Boolean.parseBoolean(System.getProperty("net.finmath.montecarlo.process.EulerSchemeFromProcessModel.isUseMultiThreadding","true"));
-	}
-
+	private static boolean isUseMultiThreadding = false;
 	public enum Scheme {
 		EULER,
 		PREDICTOR_CORRECTOR,
@@ -130,7 +126,6 @@ public class EulerSchemeFromProcessModel  extends MonteCarloProcessFromProcessMo
 		}
 
 		final int numberOfPaths			= this.getNumberOfPaths();
-		final int numberOfFactors		= this.getNumberOfFactors();
 		final int numberOfComponents	= this.getNumberOfComponents();
 
 		// Allocate Memory
@@ -180,18 +175,6 @@ public class EulerSchemeFromProcessModel  extends MonteCarloProcessFromProcessMo
 
 				final RandomVariable	driftOfComponent	= drift[componentIndex];
 
-				if(timeIndex == 24 && componentIndex == 9) {
-					Debug.logln("Drift for Path 8406 is:" + driftOfComponent.get(8406));
-				}
-				if(timeIndex == 24 && componentIndex == 9 && Double.isNaN(driftOfComponent.getMin())) {
-					Debug.ln();
-					Debug.logln("Drift Calc is Problem");
-					for(int path = 0; path < getNumberOfPaths(); path++) {
-						if(Double.isNaN(driftOfComponent.get(path))) {
-							Debug.logln("Path " + path + " is NaN");
-						}
-					}
-				}
 				// Check if the component process has stopped to evolve
 				if (driftOfComponent == null) {
 					discreteProcessAtCurrentTimeIndex.add(componentIndex, null);
@@ -201,49 +184,27 @@ public class EulerSchemeFromProcessModel  extends MonteCarloProcessFromProcessMo
 				final Callable<RandomVariable> worker = new  Callable<RandomVariable>() {
 					@Override
 					public RandomVariable call() {
-						if((timeIndex == 23) && componentIndex == 6) {
-							Debug.logVar("X[22,6]",currentState[componentIndex].get(8406));
-							Debug.logVar("Y[22,6]" ,discreteProcess[timeIndex - 1][componentIndex].get(8406));
-						}
 						if(scheme == Scheme.EULER_FUNCTIONAL || scheme == Scheme.PREDICTOR_CORRECTOR_FUNCTIONAL) {
 							currentState[componentIndex] = applyStateSpaceTransformInverse(timeIndex - 1, componentIndex, discreteProcess[timeIndex - 1][componentIndex]);
 						}
-						if(timeIndex == 23 && componentIndex == 6) {
-							Debug.logVar("X[22,6]\'", currentState[componentIndex].get(8406));
-						}
+
 						final RandomVariable[]	factorLoadings		= getFactorLoading(timeIndex - 1, componentIndex, discreteProcess[timeIndex - 1]);
 
 						// Check if the component process has stopped to evolve
 						if (factorLoadings == null) {
 							return null;
 						}
-						
-						for(int factor = 0; factor < getNumberOfFactors(); factor++) {
-							if(timeIndex == 24 && componentIndex == 9) {
-								Debug.logln("Factor Loading for Path 8406 is:" + factorLoadings[factor].get(8406));
-							}
-							if(timeIndex == 24 && componentIndex == 9 && Double.isNaN(factorLoadings[factor].getMin())) {
-								Debug.ln();
-								Debug.logln("Factor Loading Calc for Factor " + factor + " is Problem");
-							}
-							
-						}
-						
+
 						// Apply drift
 						if(driftOfComponent != null) {
-							currentState[componentIndex] = currentState[componentIndex].addProduct(driftOfComponent, deltaT); // mu DeltaT
+							RandomVariable driftPart = driftOfComponent.mult(deltaT);
+							currentState[componentIndex] = currentState[componentIndex].add(driftPart); // mu DeltaT
 						}
-						
-						if(timeIndex == 23 && componentIndex == 6) {
-							Debug.logVar("X[22,6] + mu*deltaT", currentState[componentIndex].get(8406));
-						}
+
 						// Apply diffusion
-						currentState[componentIndex] = currentState[componentIndex].addSumProduct(factorLoadings, brownianIncrement); // sigma DeltaW
-						
-						if(timeIndex == 23 && componentIndex == 6) {
-							Debug.logVar("X[23,6]", currentState[componentIndex].get(8406));
-						}
-						
+						RandomVariable diffusion = Scalar.of(0.0).addSumProduct(factorLoadings, brownianIncrement);
+						currentState[componentIndex] = currentState[componentIndex].add(diffusion); // sigma DeltaW
+
 						// Transform the state space to the value space and return it.
 						return applyStateSpaceTransform(timeIndex, componentIndex, currentState[componentIndex]);
 					}

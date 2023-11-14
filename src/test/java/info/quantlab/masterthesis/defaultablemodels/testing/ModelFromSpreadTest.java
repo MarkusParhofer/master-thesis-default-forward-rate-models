@@ -15,6 +15,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.function.DoubleToIntFunction;
 import java.util.function.DoubleUnaryOperator;
+import java.util.function.IntUnaryOperator;
 import java.util.stream.Collectors;
 
 import org.junit.Assert;
@@ -24,6 +25,7 @@ import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
 import info.quantlab.debug.Debug;
+import info.quantlab.debug.EulerSchemeFromProcessModel;
 import info.quantlab.easyplot.EasyPlot2D;
 import info.quantlab.masterthesis.functional.Functional;
 import info.quantlab.masterthesis.multilibormodels.DefaultableLIBORCovarianceModel;
@@ -51,10 +53,10 @@ import net.finmath.montecarlo.interestrate.models.covariance.LIBORCovarianceMode
 import net.finmath.montecarlo.interestrate.models.covariance.LIBORVolatilityModel;
 import net.finmath.montecarlo.interestrate.models.covariance.LIBORVolatilityModelFourParameterExponentialForm;
 import net.finmath.montecarlo.interestrate.products.AbstractTermStructureMonteCarloProduct;
+import net.finmath.montecarlo.interestrate.products.Bond;
 import net.finmath.montecarlo.interestrate.products.Swaption;
 import net.finmath.montecarlo.interestrate.products.SwaptionGeneralizedAnalyticApproximation;
 import net.finmath.montecarlo.interestrate.products.SwaptionGeneralizedAnalyticApproximation.StateSpace;
-import net.finmath.montecarlo.process.EulerSchemeFromProcessModel;
 import net.finmath.montecarlo.process.MonteCarloProcess;
 import net.finmath.montecarlo.process.MonteCarloProcessFromProcessModel;
 import net.finmath.plots.Named;
@@ -71,17 +73,19 @@ public class ModelFromSpreadTest extends info.quantlab.debug.Time{
 	{
 		return Arrays.asList(new Object[][] {
 			// Put here an array of arrays where each array represents input for the constructor
-			{0.01, 	2, "LIBORS", 	"SPOT", 	new double[] { 0.04, 0.049, 0.062, 0.049, 0.044, 0.031 }, 1},
-			{0.01, 	2, "SPREADS", 	"SPOT", 	new double[] { 0.04, 0.049, 0.062, 0.049, 0.044, 0.031 }, 2},
-			{0.1, 	2, "SPREADS", 	"SPOT", 	new double[] { 0.04, 0.049, 0.062, 0.049, 0.044, 0.031 }, 3},
-			{0.01, 	2, "SPREADS", 	"TERMINAL",	new double[] { 0.04, 0.049, 0.062, 0.049, 0.044, 0.031 }, 4},
-			{0.01, 	4, "SPREADS", 	"SPOT", 	new double[] { 0.04, 0.049, 0.062, 0.049, 0.044, 0.031 }, 5},
+			{"Run 0: Baseline",						0.01, 	2, "SPREADS", 	"SPOT", 	new double[] { 0.04, 0.049, 0.062, 0.049, 0.044, 0.031 }, 0},
+			{"Run 1: Modelling defaultable LIBORs", 0.01, 	2, "LIBORS", 	"SPOT", 	new double[] { 0.04, 0.049, 0.062, 0.049, 0.044, 0.031 }, 1},
+			{"Run 2: Spread is 0", 					0.01, 	2, "SPREADS", 	"SPOT", 	new double[] { 0.035, 0.043, 0.05, 0.041, 0.035, 0.02 }, 2},
+			{"Run 3: Rougher time delta", 			0.1, 	2, "SPREADS", 	"SPOT", 	new double[] { 0.04, 0.049, 0.062, 0.049, 0.044, 0.031 }, 3},
+			{"Run 4: Terminal Measure",			 	0.01, 	2, "SPREADS", 	"TERMINAL",	new double[] { 0.04, 0.049, 0.062, 0.049, 0.044, 0.031 }, 4},
+			{"Run 5: More free parameters", 		0.01, 	4, "SPREADS", 	"SPOT", 	new double[] { 0.04, 0.049, 0.062, 0.049, 0.044, 0.031 }, 5},
 		});
 	}
 	
-	public ModelFromSpreadTest(final double simulationTimeDelta, final int extraFactors, final String simulationProduct, final String measure, final double[] initialRatesNonDefaultable, final int run) throws CalculationException {
+	public ModelFromSpreadTest(final String runName, final double simulationTimeDelta, final int extraFactors, final String simulationProduct, final String measure, final double[] initialRatesNonDefaultable, final int run) throws CalculationException {
 		model = getValuationModel(simulationTimeDelta, extraFactors, simulationProduct, measure, initialRatesNonDefaultable);
 		runCount = run;
+		runningName = runName;
 	}
 	
 	
@@ -100,6 +104,7 @@ public class ModelFromSpreadTest extends info.quantlab.debug.Time{
 
 	private final static String stateSpace = "NORMAL"; /* No support for the lognormal model (of the defaultable LIBOR) supplied yet*/
 	
+	private static String runningName;
 	private static int runCount = 0; /* For saving plots*/
 	
 	
@@ -175,12 +180,12 @@ public class ModelFromSpreadTest extends info.quantlab.debug.Time{
 						(myList.indexOf(operator) % 5), operator)).
 				collect(Collectors.toList());
 		EasyPlot2D plot = new EasyPlot2D(model.getTime(0), model.getTimeDiscretization().getLastTime(), 51, myFunctionList);
-		plot.setTitle("Average of Non- and Defaultable LIBORs and Spreads");
+		plot.setTitle("Average of LIBORs and Spreads (" + runningName + ")");
 		plot.setIsLegendVisible(true);
 		
-		boolean saveFileWithSpecs = false;
+		boolean savePlots = false;
 		
-		if(saveFileWithSpecs) {
+		if(savePlots) {
 			String timeStamp = new SimpleDateFormat("MM-dd-yyyy_HH-mm-ss-SSSS").format(new Date());
 			String pathString = "Graphs\\" + timeStamp + "\\";
 			File directory = new File(pathString);
@@ -199,7 +204,7 @@ public class ModelFromSpreadTest extends info.quantlab.debug.Time{
 		
 		// Print Free Parameter Matrix
 		DefaultableLIBORMarketModel defTheoModel = (DefaultableLIBORFromSpreadDynamic)model.getModel();
-		DefaultableLIBORCovarianceWithGuaranteedPositiveSpread covModel = (DefaultableLIBORCovarianceWithGuaranteedPositiveSpread)(defTheoModel.getCovarianceModel());
+		/*DefaultableLIBORCovarianceWithGuaranteedPositiveSpread covModel = (DefaultableLIBORCovarianceWithGuaranteedPositiveSpread)(defTheoModel.getCovarianceModel());
 		double[][] freeParameters = covModel.getFreeParameterMatrix();
 		System.out.println("Matrix of non defaultable FL      |      Free Parameters:");
 		for(int row = 0; row < freeParameters.length; row++) {
@@ -214,15 +219,23 @@ public class ModelFromSpreadTest extends info.quantlab.debug.Time{
 			System.out.println();
 		}
 		
-		final int maxTimeIndexToPrint = 50;
 		
-		System.out.println("\nPath 0 of all LIBORs");
+		System.out.println("\nPath 0 of all LIBORs");*/
+		final int maxTimeIndexToPrint = 10;
+		final TimeDiscretization timesForPrinting = new TimeDiscretizationFromArray(0.0, maxTimeIndexToPrint + 1, model.getTimeDiscretization().getLastTime() / maxTimeIndexToPrint);
+		final IntUnaryOperator getModelTimeIndex = (printIndex) -> {
+			final int modelIndex = model.getTimeIndex(timesForPrinting.getTime(printIndex));
+			if(modelIndex < 0)
+				return - modelIndex - 2;
+			else
+				return modelIndex;
+		};
 		System.out.printf(" Time:%8s ", " ");
-		for(int timeIndex = 0; timeIndex < maxTimeIndexToPrint; timeIndex+=1) {
-			System.out.printf("%2d: %6.4f     ", timeIndex, model.getTime(timeIndex));
+		for(int timeIndex = 0; timeIndex <= maxTimeIndexToPrint; timeIndex+=1) {
+			System.out.printf("%2d: %6.4f     ", timeIndex, timesForPrinting.getTime(timeIndex));
 		}
 		System.out.println();
-		System.out.println();
+		System.out.println();/*
 		for (int row = 0; row < numberOfLiborPeriods; row++) {
 			System.out.printf(" %12s: ", "NonDefRate "+ row);
 			for(int timeIndex = 0; timeIndex < maxTimeIndexToPrint; timeIndex+=1) {
@@ -238,24 +251,42 @@ public class ModelFromSpreadTest extends info.quantlab.debug.Time{
 			}
 			System.out.println();
 		}
+		System.out.println();
+		for (int row = 0; row < numberOfLiborPeriods; row++) {
+			System.out.printf(" %12s: ", "Spread Rate "+ row);
+			for(int timeIndex = 0; timeIndex < maxTimeIndexToPrint; timeIndex+=1) {
+				System.out.printf("%9.4f      ", defTheoModel.getLIBORSpreadAtGivenTimeIndex(model.getProcess(), timeIndex, row).get(0));
+			}
+			System.out.println();
+		}
+		*/
+		System.out.println("\nAverage, Minimum and Maximum (" + runningName + "):");
 		
-		System.out.println("\nAverage, Minimum and Maximum of Defaultable LIBOR 4:");
-		
-		System.out.printf(" Mean:%8s ", "");
-		for(int timeIndex = 0; timeIndex < maxTimeIndexToPrint; timeIndex+=1) {
-			System.out.printf("%9.4f      ", model.getLIBOR(timeIndex, 4).getAverage());				
+		System.out.println("Mean:");
+		for (int row = 0; row < numberOfLiborPeriods; row++) {
+			System.out.printf(" %12s: ", "Def Rate "+ row);
+			for(int timeIndex = 0; timeIndex <= maxTimeIndexToPrint; timeIndex+=1) {
+				System.out.printf("%9.4f      ", model.getLIBOR(getModelTimeIndex.applyAsInt(timeIndex), row).getAverage());				
+			}
+			System.out.println();
 		}
 		System.out.println();
-		System.out.println();
-		System.out.printf(" Min: %8s ", " ");
-		for(int timeIndex = 0; timeIndex < maxTimeIndexToPrint; timeIndex+=1) {
-			System.out.printf("%9.4f      ", model.getLIBOR(timeIndex, 4).getMin());
+		System.out.println("Min:");
+		for (int row = 0; row < numberOfLiborPeriods; row++) {
+			System.out.printf(" %12s: ", "Def Rate "+ row);
+			for(int timeIndex = 0; timeIndex <= maxTimeIndexToPrint; timeIndex+=1) {
+				System.out.printf("%9.4f      ", model.getLIBOR(getModelTimeIndex.applyAsInt(timeIndex), row).getMin());				
+			}
+			System.out.println();
 		}
 		System.out.println();
-		System.out.println();
-		System.out.printf(" Max: %8s ", " ");
-		for(int timeIndex = 0; timeIndex < maxTimeIndexToPrint; timeIndex+=1) {
-			System.out.printf("%9.4f      ", model.getLIBOR(timeIndex, 4).getMax());
+		System.out.println("Max:");
+		for (int row = 0; row < numberOfLiborPeriods; row++) {
+			System.out.printf(" %12s: ", "Def Rate "+ row);
+			for(int timeIndex = 0; timeIndex <= maxTimeIndexToPrint; timeIndex+=1) {
+				System.out.printf("%9.4f      ", model.getLIBOR(getModelTimeIndex.applyAsInt(timeIndex), row).getMax());				
+			}
+			System.out.println();
 		}
 		
 		System.out.println();
@@ -276,7 +307,7 @@ public class ModelFromSpreadTest extends info.quantlab.debug.Time{
 		/*
 		 * Value a caplet
 		 */
-		System.out.println("Caplet prices:\n");
+		System.out.println("Caplet prices (" + runningName + "):\n");
 		System.out.print("Maturity      Simulation      Sim Non-Def     Analytic");
 		
 		System.out.println("        Deviation");
@@ -349,15 +380,28 @@ public class ModelFromSpreadTest extends info.quantlab.debug.Time{
 	
 	@Test
 	public void testBond() throws CalculationException {
-		System.out.println("\nTesting Bond Prices:\nTime     Simulation       Analytic      Deviation");
+		System.out.println("\nTesting Bond Prices (" + runningName + "):\nTime     Simulation       Analytic      Deviation      NonDefBond      NonDefReal      Deviation");
 		double absDev = 0.0;
+		LIBORModelMonteCarloSimulationModel nonDefModel = getNonDefaultableValuationModel();
 		for(double maturity = 2.0; maturity < liborPeriodLength * (numberOfLiborPeriods - 1); maturity+= liborPeriodLength) {
 			DefaultableZeroCouponBond bond = new DefaultableZeroCouponBond(maturity);
+			final Bond normalBond = new Bond(maturity);
 			final double value = bond.getValue(model);
-			final double realValue = ((DefaultableLIBORMarketModel)model.getModel()).getDefaultableBond(model.getProcess(), 0.0, maturity).getAverage();
+			final double normalValue = normalBond.getValue(nonDefModel);
+			double realValue = 1.0;
+			// Bond price analytic
+			double normalAnalyticValue = 1.0;
+
+			final double lastPeriodIndex = nonDefModel.getLiborPeriodIndex(maturity) - 1;
+			for(int periodIndex=0; periodIndex<=lastPeriodIndex; periodIndex++) {
+				realValue /= 1.0 + model.getLIBOR(0, periodIndex).doubleValue() * (model.getLiborPeriod(periodIndex+1) - model.getLiborPeriod(periodIndex));
+				normalAnalyticValue /= 1.0 + nonDefModel.getLIBOR(0, periodIndex).doubleValue() * (nonDefModel.getLiborPeriod(periodIndex+1) - nonDefModel.getLiborPeriod(periodIndex));
+			}
+
 			
 			final double deviation = realValue - value;
-			System.out.println(formatterMaturity.format(maturity) + "      " + formatterValue.format(value) + "      " + formatterValue.format(realValue)+ "      " + formatterDeviation.format(deviation));
+			final double normalDev = normalAnalyticValue - normalValue;
+			System.out.println(formatterMaturity.format(maturity) + "      " + formatterValue.format(value) + "      " + formatterValue.format(realValue) + "      " + formatterDeviation.format(deviation) + "      " + formatterValue.format(normalValue) + "      " + formatterValue.format(normalAnalyticValue) + "      " + formatterDeviation.format(normalDev));
 			absDev = Math.max(absDev, Math.abs(deviation));
 		}
 		
@@ -439,10 +483,10 @@ public class ModelFromSpreadTest extends info.quantlab.debug.Time{
 		
 		final BrownianMotion brownianMotion = new net.finmath.montecarlo.BrownianMotionFromMersenneRandomNumbers(timeDiscretization, defaultableModel.getNumberOfFactors(), numberOfPaths, bmSeed);
 		
-		EulerSchemeFromProcessModel.Scheme eulerScheme = EulerSchemeFromProcessModel.Scheme.PREDICTOR_CORRECTOR;
+		EulerSchemeFromProcessModel.Scheme eulerScheme = EulerSchemeFromProcessModel.Scheme.EULER;
 		
 		if(simulationProduct.toUpperCase() == "SPREADS")
-			eulerScheme = EulerSchemeFromProcessModel.Scheme.PREDICTOR_CORRECTOR_FUNCTIONAL;
+			eulerScheme = EulerSchemeFromProcessModel.Scheme.EULER_FUNCTIONAL;
 		
 		final MonteCarloProcessFromProcessModel process = new EulerSchemeFromProcessModel(defaultableModel, brownianMotion, eulerScheme);
 
@@ -563,7 +607,7 @@ public class ModelFromSpreadTest extends info.quantlab.debug.Time{
 
 			@Override
 			public RandomVariable getLIBOR(int timeIndex, int liborIndex) throws CalculationException {
-				return defaultableTheoModel.getDefaultableLIBOR(normalProcess, timeIndex, liborIndex);
+				return defaultableTheoModel.getUndefaultableLIBOR(normalProcess, timeIndex, liborIndex);
 			}
 
 			@Override

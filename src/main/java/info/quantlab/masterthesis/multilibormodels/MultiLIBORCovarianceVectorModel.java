@@ -176,7 +176,7 @@ public class MultiLIBORCovarianceVectorModel extends AbstractLIBORCovarianceMode
 		int lastIndexExclusive = parameters.length;
 		final DefaultableLIBORCovarianceModel[] newCovarianceModels = new DefaultableLIBORCovarianceModel[getNumberOfDefaultableModels()];
 		for(int modelIndex = getNumberOfDefaultableModels() - 1; modelIndex >= 0; modelIndex--) {
-			final int firstIndex = lastIndexExclusive - _defaultableCovarianceModels[modelIndex].getNumberOfParameter();
+			final int firstIndex = lastIndexExclusive - _defaultableCovarianceModels[modelIndex].getNumberOfParameters();
 			newCovarianceModels[modelIndex] = _defaultableCovarianceModels[modelIndex].getCloneWithModifiedParameters(Arrays.copyOfRange(parameters, firstIndex, lastIndexExclusive));
 			lastIndexExclusive = firstIndex;
 		}

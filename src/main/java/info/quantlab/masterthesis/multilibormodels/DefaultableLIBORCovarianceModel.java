@@ -79,7 +79,7 @@ public interface DefaultableLIBORCovarianceModel extends LIBORCovarianceModel {
 	}
 	
 	public default boolean isSpreadModelLogNormal() {
-		throw new UnsupportedOperationException("Covariance Model knows nothing about the Spread!");
+		return false;
 	}
 	
 	public RandomVariable[] getFactorLoadingOfSpread(double time, int component, RandomVariable[] realizationAtTimeIndex);

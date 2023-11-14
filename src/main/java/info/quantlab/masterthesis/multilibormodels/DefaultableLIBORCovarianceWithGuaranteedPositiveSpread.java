@@ -142,15 +142,17 @@ public class DefaultableLIBORCovarianceWithGuaranteedPositiveSpread extends Abst
 		RandomVariable[] factorLoading = new RandomVariable[getNumberOfFactors()];
 		
 		// Calculate from underlying undefaultable Model
-		RandomVariable relationFactor = componentRealizationDefaultable.mult(periodLength).add(1.0).discount(componentRealizationUndefaultable, periodLength);
+		RandomVariable spread = componentRealizationDefaultable.sub(componentRealizationUndefaultable);
+		RandomVariable relationFactor = Scalar.of(1.0);
+		if(spread.getMin() == spread.getMax() && spread.getMax() == 0.0)
+			relationFactor.accrue(componentRealizationDefaultable,periodLength).discount(componentRealizationUndefaultable, periodLength);
 		for(int k = 0; k < undefaultableFactors; k++) {
 			factorLoading[k] = relationFactor.mult(undefaultableFactorLoading[k]);
 		}
 		
 		// Calculate from free parameters
-		relationFactor = componentRealizationDefaultable.sub(componentRealizationUndefaultable);
 		for(int k = undefaultableFactors; k < getNumberOfFactors(); k++) {
-			factorLoading[k] = relationFactor.mult(getFreeParameterMatrix()[liborPeriodIndex][k - undefaultableFactors]);
+			factorLoading[k] = spread.mult(getFreeParameterMatrix()[liborPeriodIndex][k - undefaultableFactors]);
 		}
 		return factorLoading;
 	}
