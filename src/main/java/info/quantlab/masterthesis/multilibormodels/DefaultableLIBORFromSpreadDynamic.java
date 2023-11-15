@@ -527,7 +527,10 @@ public class DefaultableLIBORFromSpreadDynamic  extends AbstractProcessModel imp
 
 		// If time is beyond fixing, use the fixing time.
 		time = Math.min(time, periodStart);
-		int timeIndex           = process.getTimeIndex(time);
+		int timeIndex = 0;
+		if(time != 0.0)
+			process.getTimeIndex(time);
+			
 		// If time is not part of the discretization, use the nearest available point.
 		if(timeIndex < 0) {
 			timeIndex = -timeIndex-2;
@@ -641,6 +644,11 @@ public class DefaultableLIBORFromSpreadDynamic  extends AbstractProcessModel imp
 	
 	@Override
 	public RandomVariable getSurvivalProbability(MonteCarloProcess process, double evaluationTime, double maturity) throws CalculationException {
+		if(evaluationTime == 0.0) {
+			final RandomVariable defaultableBond = getNumeraireDefaultableZeroBondAsOfTimeZero(null, maturity);
+			final double nonDefaultableBond = getDiscountCurve().getDiscountFactor(maturity);
+			return defaultableBond.div(nonDefaultableBond);
+		}
 		return getDefaultableBond(process, evaluationTime, maturity).div(getForwardDiscountBond(process, evaluationTime, maturity));
 	}
 
@@ -1308,12 +1316,12 @@ public class DefaultableLIBORFromSpreadDynamic  extends AbstractProcessModel imp
 		return driftAdjustment;
 	}
 	
-	private RandomVariable getNumeraireDefaultableZeroBondAsOfTimeZero(final MonteCarloProcess process, final double time) {
+	private RandomVariable getNumeraireDefaultableZeroBondAsOfTimeZero(final MonteCarloProcess process, final double maturity) {
 		final boolean interpolateDFsOnLiborPeriodDiscretization = true;
 
 		final TimeDiscretization timeDiscretizationForCurves = interpolateDFsOnLiborPeriodDiscretization ? getLiborPeriodDiscretization() : process.getTimeDiscretization();
 
-		final int timeIndex = timeDiscretizationForCurves.getTimeIndex(time);
+		final int timeIndex = timeDiscretizationForCurves.getTimeIndex(maturity);
 		if(timeIndex >= 0) {
 			return getNumeraireDefaultableZeroBondAsOfTimeZero(process, timeIndex);
 		}
@@ -1325,15 +1333,15 @@ public class DefaultableLIBORFromSpreadDynamic  extends AbstractProcessModel imp
 			final double timeNext = timeDiscretizationForCurves.getTime(timeIndexNext);
 			final RandomVariable numeraireAdjustmentPrev = getNumeraireDefaultableZeroBondAsOfTimeZero(process, timeIndexPrev);
 			final RandomVariable numeraireAdjustmentNext = getNumeraireDefaultableZeroBondAsOfTimeZero(process, timeIndexNext);
-			return numeraireAdjustmentPrev.mult(numeraireAdjustmentNext.div(numeraireAdjustmentPrev).pow((time-timePrev)/(timeNext-timePrev)));
+			return numeraireAdjustmentPrev.mult(numeraireAdjustmentNext.div(numeraireAdjustmentPrev).pow((maturity-timePrev)/(timeNext-timePrev)));
 		}
 	}
 
-	private RandomVariable getNumeraireDefaultableZeroBondAsOfTimeZero(final MonteCarloProcess process, final int timeIndex) {
+	private RandomVariable getNumeraireDefaultableZeroBondAsOfTimeZero(final MonteCarloProcess process, final int maturityTimeIndex) {
 		final boolean interpolateDFsOnLiborPeriodDiscretization = true;
 
 		final TimeDiscretization timeDiscretizationForCurves = interpolateDFsOnLiborPeriodDiscretization ? getLiborPeriodDiscretization() : process.getTimeDiscretization();
-		final double time = timeDiscretizationForCurves.getTime(timeIndex);
+		final double time = timeDiscretizationForCurves.getTime(maturityTimeIndex);
 		
 		RandomVariable deterministicNumeraireAdjustment = null;
 		

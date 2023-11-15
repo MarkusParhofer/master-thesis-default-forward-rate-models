@@ -32,6 +32,8 @@ import info.quantlab.masterthesis.multilibormodels.DefaultableLIBORCovarianceMod
 import info.quantlab.masterthesis.multilibormodels.DefaultableLIBORCovarianceWithGuaranteedPositiveSpread;
 import info.quantlab.masterthesis.multilibormodels.DefaultableLIBORFromSpreadDynamic;
 import info.quantlab.masterthesis.multilibormodels.DefaultableLIBORMarketModel;
+import info.quantlab.masterthesis.products.DefaultableCaplet;
+import info.quantlab.masterthesis.products.DefaultableCapletAnalyticApproximation;
 import info.quantlab.masterthesis.products.DefaultableZeroCouponBond;
 import net.finmath.exception.CalculationException;
 import net.finmath.marketdata.model.curves.DiscountCurveFromForwardCurve;
@@ -54,6 +56,7 @@ import net.finmath.montecarlo.interestrate.models.covariance.LIBORVolatilityMode
 import net.finmath.montecarlo.interestrate.models.covariance.LIBORVolatilityModelFourParameterExponentialForm;
 import net.finmath.montecarlo.interestrate.products.AbstractTermStructureMonteCarloProduct;
 import net.finmath.montecarlo.interestrate.products.Bond;
+import net.finmath.montecarlo.interestrate.products.Caplet;
 import net.finmath.montecarlo.interestrate.products.Swaption;
 import net.finmath.montecarlo.interestrate.products.SwaptionGeneralizedAnalyticApproximation;
 import net.finmath.montecarlo.interestrate.products.SwaptionGeneralizedAnalyticApproximation.StateSpace;
@@ -75,7 +78,7 @@ public class ModelFromSpreadTest extends info.quantlab.debug.Time{
 			// Put here an array of arrays where each array represents input for the constructor
 			{"Run 0: Baseline",						0.01, 	2, "SPREADS", 	"SPOT", 	new double[] { 0.04, 0.049, 0.062, 0.049, 0.044, 0.031 }, 0},
 			{"Run 1: Modelling defaultable LIBORs", 0.01, 	2, "LIBORS", 	"SPOT", 	new double[] { 0.04, 0.049, 0.062, 0.049, 0.044, 0.031 }, 1},
-			{"Run 2: Spread is 0", 					0.01, 	2, "SPREADS", 	"SPOT", 	new double[] { 0.035, 0.043, 0.05, 0.041, 0.035, 0.02 }, 2},
+			{"Run 2: Spread is 0", 					0.01, 	2, "SPREADS", 	"SPOT", 	new double[] { 0.035, 0.043, 0.05, 0.041, 0.035, 0.02 },  2},
 			{"Run 3: Rougher time delta", 			0.1, 	2, "SPREADS", 	"SPOT", 	new double[] { 0.04, 0.049, 0.062, 0.049, 0.044, 0.031 }, 3},
 			{"Run 4: Terminal Measure",			 	0.01, 	2, "SPREADS", 	"TERMINAL",	new double[] { 0.04, 0.049, 0.062, 0.049, 0.044, 0.031 }, 4},
 			{"Run 5: More free parameters", 		0.01, 	4, "SPREADS", 	"SPOT", 	new double[] { 0.04, 0.049, 0.062, 0.049, 0.044, 0.031 }, 5},
@@ -113,7 +116,7 @@ public class ModelFromSpreadTest extends info.quantlab.debug.Time{
 
 	
 	private static DecimalFormat formatterMaturity	= new DecimalFormat("00.00", new DecimalFormatSymbols(Locale.ENGLISH));
-	private static DecimalFormat formatterValue		= new DecimalFormat(" ##0.000%;-##0.000%", new DecimalFormatSymbols(Locale.ENGLISH));
+	private static DecimalFormat formatterValue		= new DecimalFormat(" 00.000%;-00.000%", new DecimalFormatSymbols(Locale.ENGLISH));
 	// Unnecessary: private static DecimalFormat formatterMoneyness	= new DecimalFormat(" 000.0%;-000.0%", new DecimalFormatSymbols(Locale.ENGLISH));
 	private static DecimalFormat formatterDeviation	= new DecimalFormat(" 0.00000E00;-0.00000E00", new DecimalFormatSymbols(Locale.ENGLISH));
 	// Unnecessary: private static DecimalFormat formatterLong	= new DecimalFormat(" ##0.000;-##0.000", new DecimalFormatSymbols(Locale.ENGLISH));
@@ -307,65 +310,40 @@ public class ModelFromSpreadTest extends info.quantlab.debug.Time{
 		/*
 		 * Value a caplet
 		 */
-		System.out.println("Caplet prices (" + runningName + "):\n");
-		System.out.print("Maturity      Simulation      Sim Non-Def     Analytic");
-		
-		System.out.println("        Deviation");
+		System.out.println("\nCaplet prices (" + runningName + "):\n");
+		System.out.println("Maturity       Strike          Simulation     Analytic       Deviation      Non Def        Non Def Alt");
+
 		double maxAbsDeviation = 0.0;
 		for (double maturity = 2.0; maturity <= liborPeriodLength * (numberOfLiborPeriods - 1); maturity += liborPeriodLength) {
-
-			final double exerciseDate = maturity;
-			System.out.print(formatterMaturity.format(exerciseDate) + "         ");
-
-			final int numberOfPeriods = 1;
-
-			// Create a swaption
-
-			final double[] fixingDates = new double[numberOfPeriods];
-			final double[] paymentDates = new double[numberOfPeriods];
-			final double[] swapTenor = new double[numberOfPeriods + 1];
-			final double swapPeriodLength = 2.0;
-
-			for (int periodStartIndex = 0; periodStartIndex < numberOfPeriods; periodStartIndex++) {
-				fixingDates[periodStartIndex] = exerciseDate + periodStartIndex * swapPeriodLength;
-				paymentDates[periodStartIndex] = exerciseDate + (periodStartIndex + 1) * swapPeriodLength;
-				swapTenor[periodStartIndex] = exerciseDate + periodStartIndex * swapPeriodLength;
-			}
-			swapTenor[numberOfPeriods] = exerciseDate + numberOfPeriods * swapPeriodLength;
-
-			// Swaptions swap rate
-			final double swaprate = getParSwaprate(model, swapTenor);
-
-			// Set swap rates for each period
-			final double[] swaprates = new double[numberOfPeriods];
-			for (int periodStartIndex = 0; periodStartIndex < numberOfPeriods; periodStartIndex++) {
-				swaprates[periodStartIndex] = swaprate;
-			}
-
-			// Value with Monte Carlo
-			final Swaption swaptionMonteCarlo	= new Swaption(exerciseDate, fixingDates, paymentDates, swaprates);
-			final double valueSimulation = swaptionMonteCarlo.getValue(model);
-			System.out.print(formatterValue.format(valueSimulation) + "        ");
-			final double valueNonDefSim = swaptionMonteCarlo.getValue(getNonDefaultableValuationModel());
-			System.out.print(formatterValue.format(valueNonDefSim) + "        ");
+			System.out.print(formatterMaturity.format(maturity) + "          ");
 			
-			// Value analytic.
-			AbstractTermStructureMonteCarloProduct swaptionAnalytic = null;
-			final TimeDiscretization swapTenorTD = new TimeDiscretizationFromArray(swapTenor);
-			if(stateSpace.toUpperCase() == "LOGNORMAL") {
-				swaptionAnalytic = new SwaptionGeneralizedAnalyticApproximation(swaprate, swapTenorTD, StateSpace.LOGNORMAL);
-			}
-			else {
-				swaptionAnalytic = new SwaptionGeneralizedAnalyticApproximation(swaprate, swapTenorTD, StateSpace.NORMAL);
-			}
-			final double valueAnalytic = swaptionAnalytic.getValue(model);
-			System.out.print(formatterValue.format(valueAnalytic) + "          ");
-
-			// Absolute deviation
-			final double deviation = (valueSimulation - valueAnalytic);
-			System.out.println(formatterDeviation.format(deviation) + "        ");
-
-			maxAbsDeviation = Math.max(maxAbsDeviation, Math.abs(deviation));
+			final double strikeRate = getParSwaprate(model, new double[] { maturity, maturity + liborPeriodLength});
+			System.out.print(formatterValue.format(strikeRate) + "        ");
+			
+			DefaultableCaplet defCaplet = new DefaultableCaplet(strikeRate, maturity, liborPeriodLength, true, false);
+			final double defCapletSimValue = defCaplet.getValue(model);
+			System.out.print(formatterValue.format(defCapletSimValue) + "       ");
+			
+			DefaultableCapletAnalyticApproximation defCapletAnalytic = new DefaultableCapletAnalyticApproximation(strikeRate, maturity, liborPeriodLength, true, false);
+			final double defCapletAnalyticValue = defCapletAnalytic.getValue(model);
+			System.out.print(formatterValue.format(defCapletAnalyticValue) + "      ");
+			
+			final double absDeviation = Math.abs(defCapletAnalyticValue - defCapletSimValue);
+			System.out.print(formatterDeviation.format(absDeviation) + "    ");
+			
+			DefaultableCaplet nonDefCaplet = new DefaultableCaplet(strikeRate, maturity, liborPeriodLength, false, false);
+			final double nonDefCapletValue = nonDefCaplet.getValue(model);
+			System.out.print(formatterValue.format(nonDefCapletValue) + "       ");
+			
+			Caplet nonDefCapletAlt = new Caplet(maturity, liborPeriodLength, strikeRate, false);
+			final double nonDefCapletValueAlt = nonDefCapletAlt.getValue(getNonDefaultableValuationModel());
+			System.out.print(formatterValue.format(nonDefCapletValueAlt) + "       ");
+			
+			DefaultableCapletAnalyticApproximation nonDefCapletAnalytic = new DefaultableCapletAnalyticApproximation(strikeRate, maturity, liborPeriodLength, false, false);
+			final double nonDefCapletAnalyticValue = nonDefCapletAnalytic.getValue(model);
+			System.out.println(formatterValue.format(nonDefCapletAnalyticValue));
+			
+			maxAbsDeviation = Math.max(maxAbsDeviation, absDeviation); 
 		}
 
 		System.out.println("Maximum abs deviation: " + formatterDeviation.format(maxAbsDeviation));

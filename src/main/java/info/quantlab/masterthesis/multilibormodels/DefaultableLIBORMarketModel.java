@@ -4,10 +4,11 @@ import net.finmath.exception.CalculationException;
 import net.finmath.montecarlo.interestrate.LIBORMarketModel;
 import net.finmath.montecarlo.interestrate.LIBORModel;
 import net.finmath.montecarlo.interestrate.models.covariance.LIBORCovarianceModel;
+import net.finmath.montecarlo.model.ProcessModel;
 import net.finmath.montecarlo.process.MonteCarloProcess;
 import net.finmath.stochastic.RandomVariable;
 
-public interface DefaultableLIBORMarketModel extends LIBORMarketModel {
+public interface DefaultableLIBORMarketModel extends LIBORMarketModel, ProcessModel {
 
 	/**
 	 * Returns the underlying model for the undefaultable rate. E.g. Rates through AAA Government Bonds.

@@ -123,7 +123,7 @@ public class DefaultableCaplet extends AbstractSellerDefaultableTermStructurePro
 	 * @param isFloorlet A flag that specifies if the product is a floorlet instead of a caplet.
 	 */
 	public DefaultableCaplet(final double strikeRate, final double fixingTime, final double paymentTime, final boolean isFloorlet) {
-		this(strikeRate, fixingTime, paymentTime - fixingTime, -1, 0, 1.0, isFloorlet);
+		this(strikeRate, fixingTime, paymentTime - fixingTime, 0, -1, 1.0, isFloorlet);
 	}
 	
 	/**
@@ -134,29 +134,34 @@ public class DefaultableCaplet extends AbstractSellerDefaultableTermStructurePro
 	 * @param periodLength The length of the interest period.
 	 */
 	public DefaultableCaplet(final double strikeRate, final double fixingTime, final double periodLength) {
-		this(strikeRate, fixingTime, periodLength, -1, 0, 1.0, false);
+		this(strikeRate, fixingTime, periodLength, 0, -1, 1.0, false);
 	}
 
 	@Override
 	public RandomVariable getValue(double evaluationTime, TermStructureMonteCarloSimulationModel model) throws CalculationException {
 		// Get random variables
 		final double paymentTime = _fixingTime + _periodLength;
-		RandomVariable forwardRate				= model.getForwardRate(_fixingTime, _fixingTime, paymentTime);
-		RandomVariable survivalProbability 		= model.getRandomVariableForConstant(1.0);
-	final RandomVariable	numeraire				= model.getNumeraire(paymentTime);
-		final RandomVariable	monteCarloWeights	= model.getMonteCarloWeights(paymentTime);
+		RandomVariable forwardRate						= model.getForwardRate(_fixingTime, _fixingTime, paymentTime);
+		RandomVariable survivalProbability 				= model.getRandomVariableForConstant(1.0);
+		RandomVariable survivalProbabilityUnderlying 	= model.getRandomVariableForConstant(1.0);
+		final RandomVariable	numeraire				= model.getNumeraire(paymentTime);
+		final RandomVariable	monteCarloWeights		= model.getMonteCarloWeights(paymentTime);
 
 		if(model.getModel() instanceof DefaultableLIBORMarketModel defaultableModel) {
 			if(_issuerModelIndex >= 0)
 				survivalProbability = defaultableModel.getSurvivalProbability(model.getProcess(), evaluationTime, paymentTime);
 			if(_underlyingModelIndex < 0)
 				forwardRate = defaultableModel.getUndefaultableForwardRate(model.getProcess(), _fixingTime, _fixingTime, paymentTime);
+			else
+				survivalProbabilityUnderlying = defaultableModel.getSurvivalProbability(model.getProcess(), evaluationTime, _fixingTime);
 		}
 		else if(model.getModel() instanceof MultiLIBORVectorModel multiModel) {
 			if(_issuerModelIndex >= 0)
 				survivalProbability = multiModel.getSurvivalProbability(model.getProcess(), evaluationTime, paymentTime, _issuerModelIndex);
-			if(_underlyingModelIndex >= 0)
+			if(_underlyingModelIndex >= 0) {
 				forwardRate = multiModel.getDefaultableForwardRate(model.getProcess(), _fixingTime, _fixingTime, paymentTime, _underlyingModelIndex);
+				survivalProbabilityUnderlying = multiModel.getSurvivalProbability(model.getProcess(), evaluationTime, _fixingTime, _underlyingModelIndex);
+			}
 		}
 		/*
 		 * Calculate the payoff, which is
@@ -165,9 +170,12 @@ public class DefaultableCaplet extends AbstractSellerDefaultableTermStructurePro
 		 */
 		RandomVariable values = forwardRate;
 		if(!_isFloorlet) {
-			values = values.sub(_strikeRate).floor(0.0).mult(_periodLength * _notional);
+			// We only get the payoff if the underlying survives until Fixingtime!
+			values = values.sub(_strikeRate).floor(0.0).mult(survivalProbabilityUnderlying).mult(_periodLength * _notional);
 		} else {
-			values = values.sub(_strikeRate).cap(0.0).mult(-1.0 * _periodLength * _notional);
+			// If the underlying does not survive until Fixingtime we get the maximum payoff (K).
+			values = values.sub(_strikeRate).cap(0.0).mult(survivalProbabilityUnderlying).mult(-1.0 * _periodLength * _notional)
+					.add(survivalProbabilityUnderlying.bus(1.0).mult(_strikeRate));
 		}
 
 		values = values.div(numeraire).mult(monteCarloWeights);
