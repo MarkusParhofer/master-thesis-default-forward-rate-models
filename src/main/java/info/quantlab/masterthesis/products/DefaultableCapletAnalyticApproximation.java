@@ -58,8 +58,8 @@ public class DefaultableCapletAnalyticApproximation extends AbstractDefaultableT
 			// TODO: Handle payment time not on Libor Periods
 		}
 		
-		double initialLIBOR = model.getForwardRateCurve().getForward(null, _fixingTime);
-		double payOffUnit = model.getDiscountCurve().getDiscountFactor(_fixingTime + _periodLength); // TODO: Adjust payoff unit!!!
+		double liborForward = model.getForwardRateCurve().getForward(null, _fixingTime);
+		double payOffUnit = model.getDiscountCurve().getDiscountFactor(_fixingTime + _periodLength);
 		double integratedLIBORCov = 0.0;
 		// For getting integrated LIBOR Cov:
 		final TimeDiscretization simulationTenor = model.getCovarianceModel().getTimeDiscretization();
@@ -79,7 +79,7 @@ public class DefaultableCapletAnalyticApproximation extends AbstractDefaultableT
 			
 			// Adjust Initial LIBOR
 			if(_underlyingModelIndex < 0)
-				initialLIBOR = defModel.getUndefaultableLIBORModel().getForwardRateCurve().getForward(null, _fixingTime);
+				liborForward = defModel.getUndefaultableLIBORModel().getForwardRateCurve().getForward(null, _fixingTime);
 		
 			// Calculate Covariance:
 			if(_underlyingModelIndex < 0)
@@ -91,8 +91,7 @@ public class DefaultableCapletAnalyticApproximation extends AbstractDefaultableT
 		else if(model instanceof MultiLIBORVectorModel vecModel) {
 			// TODO: Handle Implementation
 		}
-		
-		final double volatility = Math.sqrt(integratedLIBORCov / _fixingTime);
-		return Scalar.of(AnalyticFormulas.bachelierOptionValue(initialLIBOR, volatility, _fixingTime, _strikeRate, payOffUnit)).mult(_notional);
+		final double volatility = Math.sqrt(integratedLIBORCov/_fixingTime);
+		return Scalar.of(AnalyticFormulas.bachelierOptionValue(liborForward, volatility, _fixingTime, _strikeRate, payOffUnit)).mult(_periodLength*_notional);
 	}
 }

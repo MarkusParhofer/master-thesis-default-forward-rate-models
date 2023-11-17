@@ -21,28 +21,38 @@ import net.finmath.montecarlo.interestrate.LIBORModel;
 import net.finmath.montecarlo.interestrate.models.covariance.LIBORCovarianceModel;
 import net.finmath.montecarlo.process.MonteCarloProcess;
 import net.finmath.stochastic.RandomVariable;
-import net.finmath.stochastic.Scalar;
 import net.finmath.time.TimeDiscretization;
 
+/**
+ * This is a class for the modelling of several Defaultable LIBOR Market models as well as one Non-Defaultable LIBOR 
+ * market model.<p/>
+ * <b>Caution</b>, this class assumes some basic characteristics of the underlying defaultable models:
+ * <ul>
+ * <li> All defaultable LIBOR Market Models are dependent on the same Non-Defaultable model.</li>
+ * <li> The dependency on the non-defaultable Model is expressed such that for all SDE-methods/methods called by the 
+ * MonteCarloProcess the first N components are used for modelling the non-defaultable Process (N=<code>getNumberOfLIBORPeriods()</code>)</li>
+ * <li> There are no other components modelled than that of the non-defaultable process and that, which is used for the computation of the defaultable LIBORs</li>
+ * <li> The statespace of the non-defaultable model must be the same in all models </li>
+ * <li> The measure must be the same for all models including the non-defaultable one.</li>
+ * </ul>
+ * 
+ * @author Markus Parhofer
+ * @version 0.9
+ */
 public class MultiLIBORVectorModel implements LIBORMarketModel {
 
 	private final DefaultableLIBORMarketModel[] _defaultableLIBORModels;
 	
 	private final LIBORMarketModel _undefaultableLIBORModel;
 	
-	private final MultiLIBORCovarianceVectorModel _covarianceModel;
-	
 	public MultiLIBORVectorModel(DefaultableLIBORMarketModel[] defaultableLIBORModels, LIBORMarketModel undefaultableLIBORModel) {
 		_defaultableLIBORModels = defaultableLIBORModels;
 		_undefaultableLIBORModel = undefaultableLIBORModel;
-		DefaultableLIBORCovarianceModel[] defCovarianceModels = new DefaultableLIBORCovarianceModel[_defaultableLIBORModels.length];
 		for(int index = 0; index < _defaultableLIBORModels.length; index++) {
 			if(!_undefaultableLIBORModel.equals(_defaultableLIBORModels[index].getUndefaultableLIBORModel())) {
 				throw new IllegalArgumentException("Undefaultable model is not equal to that of at least one defaultable model. Problem discovered at index " + index);
 			}
-			defCovarianceModels[index] = _defaultableLIBORModels[index].getCovarianceModel();
 		}
-		_covarianceModel = new MultiLIBORCovarianceVectorModel(defCovarianceModels, _undefaultableLIBORModel.getCovarianceModel(), true);
 	}
 
 	/**
@@ -72,15 +82,15 @@ public class MultiLIBORVectorModel implements LIBORMarketModel {
 	
 	@Override
 	public RandomVariable getLIBOR(MonteCarloProcess process, int timeIndex, int liborIndex) throws CalculationException {
-		return process.getProcessValue(timeIndex, liborIndex);
+		return getUnDefaultableLIBOR(process, timeIndex, liborIndex);
 	}
 
 	public RandomVariable getUnDefaultableLIBOR(MonteCarloProcess process, int timeIndex, int liborPeriodIndex) throws CalculationException {
-		return process.getProcessValue(timeIndex, liborPeriodIndex);
+		return getUndefaultableModel().getLIBOR(getUndefaultableProcess(process), timeIndex, liborPeriodIndex);
 	}
 	
 	public RandomVariable getDefaultableLIBOR(MonteCarloProcess process, int timeIndex, int liborPeriodIndex, int liborModelIndex) throws CalculationException {
-		return process.getProcessValue(timeIndex, (liborModelIndex + 1) * getNumberOfLiborPeriods() + liborPeriodIndex);
+		return getDefaultableModel(liborModelIndex).getDefaultableLIBOR(getDefaultableProcess(process, liborModelIndex), timeIndex, liborPeriodIndex);
 	}
 	
 	@Override
@@ -111,8 +121,8 @@ public class MultiLIBORVectorModel implements LIBORMarketModel {
 		return componentIndex % getNumberOfLiborPeriods();
 	}
 
-	public int getModelIndex(int componentIndex) {
-		return Math.floorDiv(componentIndex, getNumberOfLiborPeriods());
+	public int getDefaultableModelIndex(int componentIndex) {
+		return Math.floorDiv(componentIndex, getNumberOfLiborPeriods()) - 1;
 	}
 	/**
 	 * This will return the non-defaultable forward rate. For the defaultable forward rate resolve to {@link#getDefaultableForwardRate(process, time, periodStart, periodEnd, liborModelIndex)}
@@ -166,8 +176,13 @@ public class MultiLIBORVectorModel implements LIBORMarketModel {
 	 */
 	@Override
 	public ForwardCurve getForwardRateCurve() {
+		return getNonDefaultableForwardRateCurve();
+	}
+	
+	public ForwardCurve getNonDefaultableForwardRateCurve() {
 		return getUndefaultableModel().getForwardRateCurve();
 	}
+
 	
 	public ForwardCurve getDefaultableForwardRateCurve(int liborModelIndex) {
 		return getDefaultableModel(liborModelIndex).getForwardRateCurve();
@@ -183,7 +198,7 @@ public class MultiLIBORVectorModel implements LIBORMarketModel {
 	}
 	@Override
 	public int getNumberOfComponents() {
-		return (1 + getNumberOfLiborPeriods()) * getNumberOfDefaultableModels();
+		return getNumberOfLiborPeriods() * (getNumberOfDefaultableModels() + 1);
 	}
 
 	@Override
@@ -191,18 +206,20 @@ public class MultiLIBORVectorModel implements LIBORMarketModel {
 		if(componentIndex < getNumberOfLiborPeriods())
 			return getUndefaultableModel().applyStateSpaceTransform(getUndefaultableProcess(process), timeIndex, componentIndex, randomVariable);
 		else {
-			final int modelIndex = getModelIndex(componentIndex);
+			final int modelIndex = getDefaultableModelIndex(componentIndex);
 			return getDefaultableModel(modelIndex).applyStateSpaceTransform(getDefaultableProcess(process, modelIndex), timeIndex, getLiborPeriodIndexFromComponent(componentIndex), randomVariable);
 		}
 	}
 
 	@Override
 	public RandomVariable[] getInitialState(MonteCarloProcess process) {
+		// Initialize the Array to be non defaultable Initial states as well as the first Defaultable model Initial states:
 		RandomVariable[] initialStates = Arrays.copyOf(getDefaultableModel(0).getInitialState(getDefaultableProcess(process, 0)), getNumberOfComponents());
+		
 		int indexInitialStates = getDefaultableModel(0).getNumberOfComponents();
 		for(int i = 1; i < getNumberOfDefaultableModels(); i++) {
 			RandomVariable[] modelInitialStates = getDefaultableModel(i).getInitialState(getDefaultableProcess(process, i));
-			for(int k=0; k < getNumberOfLiborPeriods(); k++) {
+			for(int k = 0; k < getNumberOfLiborPeriods(); k++) {
 				initialStates[indexInitialStates++] = modelInitialStates[k + getNumberOfLiborPeriods()];
 			}
 		}
@@ -227,21 +244,31 @@ public class MultiLIBORVectorModel implements LIBORMarketModel {
 		ArrayList<Future<RandomVariable[]>> driftFutures = new ArrayList<>(getNumberOfDefaultableModels());
 		for(int i = 0; i < getNumberOfDefaultableModels(); i++) {
 			final int modelIndex = i;
-			final int modelComponents = getDefaultableModel(modelIndex).getNumberOfComponents();
-			final RandomVariable[] realizationForModel = Arrays.copyOf(undefaultableRealizations, modelComponents);
-			final RandomVariable[] realizationPredForModel = Arrays.copyOf(undefaultableRealizationPred, modelComponents);
-			for(int comp = 0; comp < getNumberOfLiborPeriods(); comp++) {
-				realizationForModel[comp + getNumberOfLiborPeriods()] = realizationAtTimeIndex[getFirstComponentOfDefaultableModel(modelIndex) + comp];
-				realizationPredForModel[comp + getNumberOfLiborPeriods()] = realizationPredictor[getFirstComponentOfDefaultableModel(modelIndex) + comp];
-			}
-			final DefaultableLIBORMarketModel model = getDefaultableModel(modelIndex);
+			final DefaultableLIBORMarketModel model = getDefaultableModel(modelIndex);			
 			
 			final Callable<RandomVariable[]> worker = new  Callable<RandomVariable[]>() {
 				@Override
 				public RandomVariable[] call() {
+					final int modelComponents = getDefaultableModel(modelIndex).getNumberOfComponents();
+					RandomVariable[] realizationForModel = null;
+					if(undefaultableRealizations != null) {
+						realizationForModel = Arrays.copyOf(undefaultableRealizations, modelComponents);
+						for(int comp = 0; comp < getNumberOfLiborPeriods(); comp++) {
+							realizationForModel[comp + getNumberOfLiborPeriods()] = realizationAtTimeIndex[getFirstComponentOfDefaultableModel(modelIndex) + comp];
+						}
+					}
+					RandomVariable[] realizationPredForModel = null;
+					if(undefaultableRealizationPred != null) {
+						realizationPredForModel = Arrays.copyOf(undefaultableRealizationPred, modelComponents);
+						for(int comp = 0; comp < getNumberOfLiborPeriods(); comp++) {
+							realizationPredForModel[comp + getNumberOfLiborPeriods()] = realizationPredictor[getFirstComponentOfDefaultableModel(modelIndex) + comp];
+						}
+					}
+					
 					return model.getDriftOfDefaultableModel(getDefaultableProcess(process, modelIndex), timeIndex, realizationForModel, realizationPredForModel);
 				}
 			};
+			
 			if(executor != null) {
 				final Future<RandomVariable[]> driftFuture = executor.submit(worker);
 				driftFutures.add(modelIndex, driftFuture);
@@ -265,7 +292,8 @@ public class MultiLIBORVectorModel implements LIBORMarketModel {
 				throw new UnsupportedOperationException("Multi Threading did not work! Try again later.");
 			}
 			for(int component = 0; component < getNumberOfLiborPeriods(); component++) {
-				driftVector[getFirstComponentOfDefaultableModel(modelIndex) + component] = defaultableDrift[component];
+				// First Indices of defaultable Drift are Non defaultable Drift
+				driftVector[getFirstComponentOfDefaultableModel(modelIndex) + component] = defaultableDrift[component + getNumberOfLiborPeriods()];
 			}
 		}
 		return driftVector;
@@ -273,9 +301,13 @@ public class MultiLIBORVectorModel implements LIBORMarketModel {
 
 	
 	public RandomVariable[] getDriftSlow(MonteCarloProcess process, int timeIndex, RandomVariable[] realizationAtTimeIndex, RandomVariable[] realizationPredictor) {
+		RandomVariable[] realizationForModel = null;
+		if(realizationAtTimeIndex != null)
+			realizationForModel = Arrays.copyOf(realizationAtTimeIndex, getDefaultableModel(0).getNumberOfComponents());
 		
-		final RandomVariable[] realizationForModel = Arrays.copyOf(realizationAtTimeIndex, getDefaultableModel(0).getNumberOfComponents());
-		final RandomVariable[] realizationPredForModel = Arrays.copyOf(realizationPredictor,  getDefaultableModel(0).getNumberOfComponents());
+		RandomVariable[] realizationPredForModel = null;
+		if(realizationPredictor != null)
+			realizationPredForModel = Arrays.copyOf(realizationPredictor,  getDefaultableModel(0).getNumberOfComponents());
 		
 		RandomVariable[] firstDrift = getDefaultableModel(0).getDrift(getDefaultableProcess(process, 0), timeIndex, realizationForModel, realizationPredForModel);
 		RandomVariable[] driftVector = Arrays.copyOf(firstDrift, getNumberOfComponents());
@@ -283,14 +315,16 @@ public class MultiLIBORVectorModel implements LIBORMarketModel {
 		for(int i = 1; i < getNumberOfDefaultableModels(); i++) {
 			final int modelIndex = i;
 			for(int comp = 0; comp < getNumberOfLiborPeriods(); comp++) {
-				realizationForModel[comp + getNumberOfLiborPeriods()] = realizationAtTimeIndex[getFirstComponentOfDefaultableModel(modelIndex) + comp];
-				realizationPredForModel[comp + getNumberOfLiborPeriods()] = realizationPredictor[getFirstComponentOfDefaultableModel(modelIndex) + comp];
+				if(realizationForModel != null)
+					realizationForModel[comp + getNumberOfLiborPeriods()] = realizationAtTimeIndex[getFirstComponentOfDefaultableModel(modelIndex) + comp];
+				if(realizationPredForModel != null)
+					realizationPredForModel[comp + getNumberOfLiborPeriods()] = realizationPredictor[getFirstComponentOfDefaultableModel(modelIndex) + comp];
 			}
 			final DefaultableLIBORMarketModel model = getDefaultableModel(modelIndex);
 			
 			RandomVariable[] modelDrift = model.getDriftOfDefaultableModel(getDefaultableProcess(process, modelIndex), timeIndex, realizationForModel, realizationPredForModel);
 			for(int component = 0; component < getNumberOfLiborPeriods(); component++) {
-				driftVector[getFirstComponentOfDefaultableModel(modelIndex) + component] = modelDrift[component];
+				driftVector[getFirstComponentOfDefaultableModel(modelIndex) + component] = modelDrift[component + getNumberOfLiborPeriods()];
 			}
 		}
 		
@@ -304,17 +338,65 @@ public class MultiLIBORVectorModel implements LIBORMarketModel {
 
 	@Override
 	public RandomVariable[] getFactorLoading(MonteCarloProcess process, int timeIndex, int componentIndex, RandomVariable[] realizationAtTimeIndex) {
-		return getCovarianceModel().getFactorLoading(process.getTime(timeIndex), componentIndex, realizationAtTimeIndex);
+		final int modelIndex = getDefaultableModelIndex(componentIndex);
+		if(modelIndex < 0) {
+			RandomVariable[] realizations = Arrays.copyOf(realizationAtTimeIndex, getUndefaultableModel().getNumberOfComponents());
+			return bringFactorLoadingsInRightPosition(getUndefaultableModel().getFactorLoading(getUndefaultableProcess(process), timeIndex, componentIndex, realizations), -1);
+		}
+		RandomVariable[] realizations = new RandomVariable[getDefaultableModel(modelIndex).getNumberOfComponents()];
+		for(int i =0; i < getNumberOfLiborPeriods(); i++) {
+			realizations[i] = realizationAtTimeIndex[i];
+			realizations[i + getNumberOfLiborPeriods()] = realizationAtTimeIndex[i + getFirstComponentOfDefaultableModel(modelIndex)];
+		}
+		return bringFactorLoadingsInRightPosition(getDefaultableModel(modelIndex).getFactorLoading(getDefaultableProcess(process, modelIndex), timeIndex, componentIndex, realizations), modelIndex);
 	}
 
+	private RandomVariable[] bringFactorLoadingsInRightPosition(RandomVariable[] flOfModel, int modelIndex) {
+		final int factorsUndefaultable = getUndefaultableModel().getNumberOfFactors();
+		final int factorsModel = getDefaultableModel(modelIndex).getNumberOfFactors();
+		
+		RandomVariable[] allFactors = new RandomVariable[getNumberOfFactors()];
+		int endInsertionIndex = modelIndex == 0? factorsModel : factorsUndefaultable;
+		for(int i =0; i < endInsertionIndex; i++) {
+			allFactors[i] = flOfModel[i];
+		}
+		
+		final RandomVariable zero = getRandomVariableForConstant(0.0);
+		
+		if(modelIndex < 1) {
+			// If we are at the non-defaultable model or the index 0 defaultable model we have an early out
+			Arrays.fill(allFactors, endInsertionIndex, getNumberOfFactors(), zero);
+			return allFactors;
+		}
+		
+		int startInsertionIndex = endInsertionIndex;
+		int modelIterateIndex = 0;
+		while(modelIterateIndex < modelIndex)
+			startInsertionIndex += getDefaultableModel(modelIterateIndex++).getNumberOfFactors() - factorsUndefaultable;
+		
+		Arrays.fill(allFactors, endInsertionIndex, startInsertionIndex, zero);
+		endInsertionIndex = startInsertionIndex;
+		for(int i = factorsUndefaultable; i < factorsModel; i++) {
+			allFactors[endInsertionIndex++] = flOfModel[i];
+		}
+		Arrays.fill(allFactors, endInsertionIndex, getNumberOfFactors(), zero);
+		
+		return allFactors;
+	}
+	
 	@Override
 	public RandomVariable getRandomVariableForConstant(double value) {
-		return Scalar.of(value);
+		return getUndefaultableModel().getRandomVariableForConstant(value);
 	}
 
 	@Override
-	public LIBORCovarianceModel getCovarianceModel() {
-		return _covarianceModel;
+	public MultiLIBORCovarianceVectorModel getCovarianceModel() {
+		// This Model exists only for Calibration. We do not call its' methods from this class!
+		DefaultableLIBORCovarianceModel[] defCovarianceModels = new DefaultableLIBORCovarianceModel[_defaultableLIBORModels.length];
+		for(int index = 0; index < _defaultableLIBORModels.length; index++) {
+			defCovarianceModels[index] = _defaultableLIBORModels[index].getCovarianceModel();
+		}
+		return new MultiLIBORCovarianceVectorModel(defCovarianceModels, _undefaultableLIBORModel.getCovarianceModel(), true);
 	}
 
 	@Override
@@ -328,7 +410,7 @@ public class MultiLIBORVectorModel implements LIBORMarketModel {
 	}
 	
 	public int getLastComponentOfDefaultableModel(int liborModelIndex) {
-		return getNumberOfLiborPeriods() * (liborModelIndex + 2);
+		return getNumberOfLiborPeriods() * (liborModelIndex + 2) - 1;
 	}
 	
 	private MonteCarloProcess getUndefaultableProcess(MonteCarloProcess process) {
@@ -351,17 +433,24 @@ public class MultiLIBORVectorModel implements LIBORMarketModel {
 
 	@Override
 	public MultiLIBORVectorModel getCloneWithModifiedCovarianceModel(LIBORCovarianceModel calibrationCovarianceModel) {
-		if(!(calibrationCovarianceModel instanceof MultiLIBORCovarianceVectorModel)) {
-			throw new IllegalArgumentException("Covariance model is not of type MultiLIBORCovarianceVectorModel.");
+		if(calibrationCovarianceModel instanceof MultiLIBORCovarianceVectorModel castedModel) {
+			LIBORMarketModel newUndefaultableModel = getUndefaultableModel();
+			boolean undefaultableModelChanged = getUndefaultableModel().getCovarianceModel() != castedModel.getUndefaultableLiborCovarianceModel();
+			if(undefaultableModelChanged)
+				newUndefaultableModel = getUndefaultableModel().getCloneWithModifiedCovarianceModel(castedModel.getUndefaultableLiborCovarianceModel());
+			
+			DefaultableLIBORMarketModel[] newDefaultableModels = new DefaultableLIBORMarketModel[_defaultableLIBORModels.length];
+			for(int i=0; i< newDefaultableModels.length; i++) {
+				newDefaultableModels[i] = getDefaultableModel(i);
+				if(getDefaultableModel(i).getCovarianceModel() != castedModel.getDefaultableCovarianceModel(i))
+					newDefaultableModels[i] = getDefaultableModel(i).getCloneWithModifiedCovarianceModel(castedModel.getDefaultableCovarianceModel(i));
+				if(undefaultableModelChanged)
+					newDefaultableModels[i] = newDefaultableModels[i].getCloneWithModifiedUndefaultableModel(newUndefaultableModel);
+			}
+			
+			return new MultiLIBORVectorModel(newDefaultableModels, newUndefaultableModel);
 		}
-		MultiLIBORCovarianceVectorModel castedCovarianceModel = (MultiLIBORCovarianceVectorModel)calibrationCovarianceModel;
-		LIBORMarketModel newUndefaultableModel = _undefaultableLIBORModel.getCloneWithModifiedCovarianceModel(castedCovarianceModel.getUndefaultableLiborCovarianceModel());
-		DefaultableLIBORMarketModel[] newDefaultableModels = new DefaultableLIBORMarketModel[_defaultableLIBORModels.length];
-		for(int i=0; i< newDefaultableModels.length; i++) {
-			newDefaultableModels[i] = _defaultableLIBORModels[i].getCloneWithModifiedCovarianceModel(castedCovarianceModel.getDefaultableCovarianceModel(i));
-			newDefaultableModels[i] = newDefaultableModels[i].getCloneWithModifiedUndefaultableModel(newUndefaultableModel);
-		}
-		return new MultiLIBORVectorModel(newDefaultableModels, newUndefaultableModel);
+		throw new IllegalArgumentException("Covariance model is not of type MultiLIBORCovarianceVectorModel.");
 	}
 
 

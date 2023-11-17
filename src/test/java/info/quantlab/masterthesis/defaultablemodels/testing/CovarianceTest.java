@@ -24,7 +24,7 @@ import net.finmath.time.TimeDiscretizationFromArray;
 public class CovarianceTest {
 	
 	public static final double[] fixingTimes = new double[] { 0.5, 1.0, 2.0, 4.0, 8.0, 25.0 };
-	public static double[] initialRatesDefaultable = new double[] { 0.1, 0.13, 0.11, 0.14, 0.18, 0.2 }; //{ 0.04, 0.049, 0.062, 0.049, 0.044, 0.031 }; 		// needs to be of length fixingTimes
+	public static double[] initialRatesDefaultable = new double[] { 0.3, 0.23, 0.19, 0.24, 0.33, 0.23 }; //{ 0.1, 0.13, 0.11, 0.14, 0.18, 0.2 }; //{ 0.04, 0.049, 0.062, 0.049, 0.044, 0.031 }; 		// needs to be of length fixingTimes
 	public static double[] initialRatesNondefaultable = new double[] { 0.035, 0.043, 0.05, 0.041, 0.035, 0.02 };		// needs to be of length fixingTimes
 	public static final double liborPeriodLength = 2.0;
 	public static final double simulationTimeDelta = 0.1;
@@ -34,9 +34,11 @@ public class CovarianceTest {
 	public static final LIBORCovarianceModel baseCovarianceModel;
 	
 	public static final int numberOfExtraFactors = 5;
+	public final double squeezeParam = 1.0;
 	
 	
-	private static DecimalFormat formatterDeviation	= new DecimalFormat(" 0.0000;-0.0000", new DecimalFormatSymbols(Locale.ENGLISH));
+	private static DecimalFormat formatterValue	= new DecimalFormat(" 0.0000;-0.0000", new DecimalFormatSymbols(Locale.ENGLISH));
+	private static DecimalFormat formatterDeviation	= new DecimalFormat(" 0.00000E00;-0.00000E00", new DecimalFormatSymbols(Locale.ENGLISH));
 	
 	
 	public CovarianceTest() {
@@ -46,7 +48,9 @@ public class CovarianceTest {
 	@Test
 	public void testCovarianceStructureFromForwardCurve() {
 		DefaultableLIBORCovarianceWithGuaranteedPositiveSpread defCovModel = 
-				new DefaultableLIBORCovarianceWithInitialUndefaultableCovariance(baseCovarianceModel, defaultableForwards, nonDefaultableForwards, numberOfExtraFactors);
+				new DefaultableLIBORCovarianceWithInitialUndefaultableCovariance(baseCovarianceModel, defaultableForwards, nonDefaultableForwards, numberOfExtraFactors, squeezeParam);
+		
+		System.out.println("\nNumber of Factors: " + defCovModel.getNumberOfFactors() + "\n");
 		
 		System.out.println("\nFree Parameter Matrix:\n");
 		double[][] freeParams = defCovModel.getFreeParameterMatrix();
@@ -71,23 +75,44 @@ public class CovarianceTest {
 		for(int row = 0; row < liborPeriods.getNumberOfTimeSteps(); row++) {
 			for (int col = 0; col < liborPeriods.getNumberOfTimeSteps(); col++) {
 				final double initCovNonDef = baseCovarianceModel.getCovariance(0, row, col, null).doubleValue();
-				final double initCovDef = defCovModel.getCovariance(0, row, col, initialValues).doubleValue();
+				final double initCovDef = defCovModel.getCovariance(0, row+ liborPeriods.getNumberOfTimeSteps(), col+ liborPeriods.getNumberOfTimeSteps(), initialValues).doubleValue();
 				maxAbsDeviation = Math.max(maxAbsDeviation, Math.abs(initCovNonDef - initCovDef));
 			}
 			
 			for (int col = 0; col < liborPeriods.getNumberOfTimeSteps(); col++) {
 				final double initCovNonDef = baseCovarianceModel.getCovariance(0, row, col, null).doubleValue();
-				System.out.print(formatterDeviation.format(initCovNonDef) + "     ");
+				System.out.print(formatterValue.format(initCovNonDef) + "     ");
 			}
 			System.out.print("|     ");
 			for (int col = 0; col < liborPeriods.getNumberOfTimeSteps(); col++) {
-				final double initCovDef = baseCovarianceModel.getCovariance(0, row, col, null).doubleValue();
-				System.out.print(formatterDeviation.format(initCovDef) + "     ");
+				final double initCovDef = defCovModel.getCovariance(0, row + liborPeriods.getNumberOfTimeSteps(), col + liborPeriods.getNumberOfTimeSteps(), initialValues).doubleValue();
+				System.out.print(formatterValue.format(initCovDef) + "     ");
 			}
 			System.out.println();
 		}
 		System.out.println("\nMaximum Absolute Deviation is: " + formatterDeviation.format(maxAbsDeviation));
-		Assert.assertTrue(maxAbsDeviation < 8E-2d);
+		System.out.println();
+		double maxAbsDeviationLowFac = 0.0;
+		
+		for(int row = 0; row < liborPeriods.getNumberOfTimeSteps(); row++) {
+			
+			for (int col = 0; col < liborPeriods.getNumberOfTimeSteps(); col++) {
+				double initCovDef = 0.0;
+				RandomVariable[] flsRow = defCovModel.getFactorLoading(0, row + defCovModel.getLiborPeriodDiscretization().getNumberOfTimeSteps(), initialValues);
+				RandomVariable[] flsCol = defCovModel.getFactorLoading(0, col + defCovModel.getLiborPeriodDiscretization().getNumberOfTimeSteps(), initialValues);
+				for(int factor = 0; factor < baseCovarianceModel.getNumberOfFactors(); factor++) {
+					initCovDef += flsRow[factor].doubleValue() * flsCol[factor].doubleValue();
+				}
+				final double initCovNonDef = baseCovarianceModel.getCovariance(0, row, col, null).doubleValue();
+				maxAbsDeviationLowFac = Math.max(maxAbsDeviationLowFac, Math.abs(initCovNonDef - initCovDef));
+				System.out.print(formatterValue.format(initCovDef) + "     ");
+			}
+			System.out.println();
+		}
+		System.out.println("\nMaximum Absolute Deviation is: " + formatterDeviation.format(maxAbsDeviationLowFac));
+		
+		
+		Assert.assertTrue(maxAbsDeviation < 1E-2d);
 	}
 	
 	static {
