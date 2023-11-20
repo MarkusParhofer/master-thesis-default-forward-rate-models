@@ -55,7 +55,7 @@ public class DefaultableLIBORFromSpreadDynamic  extends AbstractProcessModel imp
 	private HandleSimulationTime handleSimulationTime = HandleSimulationTime.ROUND_NEAREST;
 	private InterpolationMethod	interpolationMethod	= InterpolationMethod.LOG_LINEAR_UNCORRECTED;
 	private SimulationModel simulationModel = SimulationModel.SPREADS;
-	private boolean spreadIsLogNormal = false;
+	private StateSpace stateSpaceOfSpread = StateSpace.NORMAL;
 	private boolean nondefaultableModelIsLogNormal = false;
 	
 	private final LIBORMarketModel _nonDefaultableModel;
@@ -96,6 +96,8 @@ public class DefaultableLIBORFromSpreadDynamic  extends AbstractProcessModel imp
 				case "statespace":
 					try {
 						stateSpace = StateSpace.valueOf(propertyMap.get(key).toUpperCase());
+						if(stateSpace == StateSpace.LOGNORMAL)
+							System.out.println("<[Warning]: No support for the lognormal statespace yet!>");
 					} catch(Exception ex) {
 						System.out.println("<[Warning]:\n"
 								+ "Source: Constructor of DefaultableLIBORMarketModelFromCovarianceModel\n"
@@ -128,25 +130,32 @@ public class DefaultableLIBORFromSpreadDynamic  extends AbstractProcessModel imp
 								+ "Source: Constructor of DefaultableLIBORMarketModelFromCovarianceModel\n"
 								+ "Warning: Key \"simulationmodel\" ignored, value unknown. Value: " + propertyMap.get(key).toUpperCase() + "\n>");
 					}
-					if(simulationModel == SimulationModel.SPREADS) {
-						spreadIsLogNormal = covarianceModel.isSpreadModelLogNormal();
-						if(spreadIsLogNormal) {
-							try {
-								for(int i = 0; i < getNumberOfLIBORPeriods(); i++) {
-									final double spread = getDefaultableLIBOR(null,  0, i).sub(getUndefaultableLIBOR(null, 0, i)).doubleValue();
-									if(spread == 0.0) {
-										// Cannot have lognormal spread dynamic if starting Value of Spread is zero
-										spreadIsLogNormal = false;
-										break;
-									}
-								}
-							} catch(CalculationException ex) {
-								spreadIsLogNormal = false;
-							}
-						}
-						if(!spreadIsLogNormal)
-							valueFloor = Double.NEGATIVE_INFINITY;
+					break;
+				case "statespaceofspread":
+					try {
+						stateSpaceOfSpread = StateSpace.valueOf(propertyMap.get(key).toUpperCase());
+					} catch(Exception ex) {
+						System.out.println("<[Warning]:\n"
+								+ "Source: Constructor of DefaultableLIBORMarketModelFromCovarianceModel\n"
+								+ "Warning: Key \"simulationmodel\" ignored, value unknown. Value: " + propertyMap.get(key).toUpperCase() + "\n>");
 					}
+					if(stateSpaceOfSpread == StateSpace.LOGNORMAL) {
+						stateSpaceOfSpread = covarianceModel.isSpreadModelLogNormal() ? StateSpace.LOGNORMAL : StateSpace.NORMAL;
+						try {
+							for(int i = 0; i < getNumberOfLIBORPeriods(); i++) {
+								final double spread = getDefaultableLIBOR(null,  0, i).sub(getUndefaultableLIBOR(null, 0, i)).doubleValue();
+								if(spread == 0.0) {
+									// Cannot have lognormal spread dynamic if starting Value of Spread is zero
+									stateSpaceOfSpread = StateSpace.NORMAL;
+									break;
+								}
+							}
+						} catch(CalculationException ex) {
+							stateSpaceOfSpread = StateSpace.NORMAL;
+						}
+					}
+					if(!(stateSpaceOfSpread == StateSpace.LOGNORMAL))
+						valueFloor = Double.NEGATIVE_INFINITY;
 					break;
 				default:
 					continue;
@@ -281,19 +290,23 @@ public class DefaultableLIBORFromSpreadDynamic  extends AbstractProcessModel imp
 		}
 
 		final RandomVariable[] initialStateRV = Arrays.copyOf(getUndefaultableLIBORModel().getInitialState(null), getNumberOfComponents());
-		if(simulationModel == SimulationModel.SPREADS) {
+		switch(simulationModel) {
+		case SPREADS:
 			for(int liborIndex = 0; liborIndex < getNumberOfLIBORPeriods(); liborIndex++) {
 				initialStateRV[getSpreadComponentIndex(liborIndex)] = initialStateRV[liborIndex].bus(initialStatesD[liborIndex]);
-				if(spreadIsLogNormal)
+				if(stateSpaceOfSpread == StateSpace.LOGNORMAL)
 					initialStateRV[getSpreadComponentIndex(liborIndex)] = initialStateRV[getSpreadComponentIndex(liborIndex)].log();
 			}
-		}
-		else {
+			break;
+		case LIBORS:
 			for(int liborIndex = 0; liborIndex < getNumberOfLIBORPeriods(); liborIndex++) {
 				initialStateRV[getDefaultableComponentIndex(liborIndex)] = getRandomVariableForConstant(initialStatesD[liborIndex]);
 				if(stateSpace == StateSpace.LOGNORMAL)
 					initialStateRV[getDefaultableComponentIndex(liborIndex)] = initialStateRV[getDefaultableComponentIndex(liborIndex)].log();
 			}
+			break;
+		default:
+			throw new IllegalArgumentException("Method not implemented for specified simulation model.");
 		}
 		return initialStateRV;
 	}
@@ -303,17 +316,21 @@ public class DefaultableLIBORFromSpreadDynamic  extends AbstractProcessModel imp
 		final RandomVariable[] nonDefaultableDriftVector = getDriftOfUndefaultableModel(process, timeIndex, realizationAtTimeIndex, realizationPredictor);
 		RandomVariable[] fullDriftVector = Arrays.copyOf(nonDefaultableDriftVector, getNumberOfComponents());
 		
-		if(simulationModel == SimulationModel.SPREADS) {
+		switch(simulationModel) {
+		case SPREADS:
 			RandomVariable[] spreadDrift = getDriftOfSpread(process, timeIndex, realizationAtTimeIndex, realizationPredictor, nonDefaultableDriftVector);
 			for(int i=getNumberOfLIBORPeriods(); i < getNumberOfComponents(); i++) {
 				fullDriftVector[i] = spreadDrift[i - getNumberOfLIBORPeriods()];
 			}
-		}
-		else {			
+			break;
+		case LIBORS:			
 			RandomVariable[] defaultableDrift = getDriftOfDefaultableModel(process, timeIndex, realizationAtTimeIndex, realizationPredictor);
 			for(int i=getNumberOfLIBORPeriods(); i < getNumberOfComponents(); i++) {
 				fullDriftVector[i] = defaultableDrift[i - getNumberOfLIBORPeriods()];
 			}
+			break;
+		default:
+			throw new IllegalArgumentException("Method not implemented for specified simulation model.");
 		}
 		return fullDriftVector;
 	}
@@ -397,6 +414,7 @@ public class DefaultableLIBORFromSpreadDynamic  extends AbstractProcessModel imp
 		
 		
 		
+		
 		for(int libor=0; libor < getNumberOfLIBORPeriods(); libor++) {
 			if(drift[libor] == null || nonDefaultableDrifts[libor] == null) {
 				drift[libor] = null;
@@ -414,7 +432,7 @@ public class DefaultableLIBORFromSpreadDynamic  extends AbstractProcessModel imp
 				drift[libor] = drift[libor].mult(realizationAllLIBORS[getDefaultableComponentIndex(libor)]);
 			}
 			drift[libor] = drift[libor].sub(nonDefaultableDrifts[libor]);
-			if(spreadIsLogNormal) {
+			if(stateSpaceOfSpread == StateSpace.LOGNORMAL) {
 				drift[libor] = drift[libor].div(realizationAtTimeIndex[getSpreadComponentIndex(libor)]);
 				RandomVariable[] factorLoadingSpread = getFactorLoadingOfSpread(process, timeIndex, libor, realizationAtTimeIndex);
 				for(int factor = 0; factor < getNumberOfFactors(); factor++) {
@@ -422,7 +440,7 @@ public class DefaultableLIBORFromSpreadDynamic  extends AbstractProcessModel imp
 				}
 			}
 		}
-
+		
 		return drift;
 	}
 	
@@ -466,12 +484,12 @@ public class DefaultableLIBORFromSpreadDynamic  extends AbstractProcessModel imp
 		RandomVariable[] realizationAllLIBORs = Arrays.copyOf(realizationAtTimeIndex, getNumberOfComponents());
 		// Add Spread to non-defaultable LIBORs to get defaultable LIBORS
 		for(int component = getNumberOfLIBORPeriods(); component < getNumberOfComponents(); component++) {
-			realizationAllLIBORs[component] = realizationAllLIBORs[component - getNumberOfLIBORPeriods()].add(realizationAtTimeIndex[component]);
+			realizationAllLIBORs[component] = realizationAtTimeIndex[component - getNumberOfLIBORPeriods()].add(realizationAtTimeIndex[component]);
 		}
 		RandomVariable[] factorLoading = getCovarianceModel().getFactorLoading(process.getTime(timeIndex), getDefaultableComponentIndex(componentIndex), realizationAllLIBORs);
-		
-		
 		RandomVariable[] factorLoadingNonDef = getCovarianceModel().getFactorLoading(process.getTime(timeIndex), componentIndex, realizationAllLIBORs);
+		
+		
 		for(int i =0; i < getNumberOfFactors(); i++) {
 			if(stateSpace == StateSpace.LOGNORMAL) {
 				// Multiply L^d to factorLoading
@@ -482,7 +500,7 @@ public class DefaultableLIBORFromSpreadDynamic  extends AbstractProcessModel imp
 				factorLoadingNonDef[i] = factorLoadingNonDef[i].mult(realizationAllLIBORs[componentIndex]);
 			}
 			factorLoading[i] = factorLoading[i].sub(factorLoadingNonDef[i]);
-			if(spreadIsLogNormal) {
+			if(stateSpaceOfSpread == StateSpace.LOGNORMAL) {
 				factorLoading[i] = factorLoading[i].div(realizationAtTimeIndex[getSpreadComponentIndex(componentIndex)]);
 			}
 		}
@@ -500,6 +518,7 @@ public class DefaultableLIBORFromSpreadDynamic  extends AbstractProcessModel imp
 					factorLoading[i] = factorLoading[i].div(realizationAtTimeIndex[getSpreadComponentIndex(componentIndex)]);
 			}
 		}*/
+		
 		return factorLoading;
 	}
 	
@@ -511,7 +530,8 @@ public class DefaultableLIBORFromSpreadDynamic  extends AbstractProcessModel imp
 		
 		RandomVariable value = randomVariable;
 
-		if(simulationModel == SimulationModel.SPREADS && spreadIsLogNormal || simulationModel == SimulationModel.LIBORS && stateSpace == StateSpace.LOGNORMAL) {
+		if((simulationModel == SimulationModel.SPREADS && stateSpaceOfSpread == StateSpace.LOGNORMAL) || 
+				(simulationModel == SimulationModel.LIBORS && stateSpace == StateSpace.LOGNORMAL)) {
 			value = value.exp(); //.floor(1E-5);
 		}
 		
@@ -533,7 +553,8 @@ public class DefaultableLIBORFromSpreadDynamic  extends AbstractProcessModel imp
 		
 		RandomVariable value = randomVariable;
 		
-		if(simulationModel == SimulationModel.SPREADS && spreadIsLogNormal || simulationModel == SimulationModel.LIBORS && stateSpace == StateSpace.LOGNORMAL) {
+		if((simulationModel == SimulationModel.SPREADS && stateSpaceOfSpread == StateSpace.LOGNORMAL) || 
+				(simulationModel == SimulationModel.LIBORS && stateSpace == StateSpace.LOGNORMAL)) {
 			value = value.log();			
 		}
 		
@@ -1114,8 +1135,10 @@ public class DefaultableLIBORFromSpreadDynamic  extends AbstractProcessModel imp
 		// Allocate array (for each k) for the sums of delta_{i}/(1+L_{i} \delta_i) f_{i,k} (+ for spot measure, - for terminal measure)
 		final RandomVariable[]	factorLoadingsSums	= new RandomVariable[getNumberOfFactors()];		
 		Arrays.fill(factorLoadingsSums, zero);
-
+		
+		
 		if(measure == Measure.SPOT) {
+			
 			// Calculate drift for the component componentIndex (starting at firstForwardRateIndex, others are zero)
 			for(int liborIndex=firstForwardRateIndex; liborIndex < getNumberOfLIBORPeriods(); liborIndex++) {
 				final double			periodLength	= getLiborPeriodDiscretization().getTimeStep(liborIndex);
@@ -1133,6 +1156,7 @@ public class DefaultableLIBORFromSpreadDynamic  extends AbstractProcessModel imp
 				}
 				
 				drift[liborIndex] = drift[liborIndex].addSumProduct(factorLoadingsSums, factorLoading);
+				
 			}
 		}
 		else if(measure == Measure.TERMINAL) {
@@ -1157,6 +1181,7 @@ public class DefaultableLIBORFromSpreadDynamic  extends AbstractProcessModel imp
 		else {
 			throw new IllegalArgumentException("Drift not implemented for specified measure.");
 		}
+		
 		return drift;
 	}
 	

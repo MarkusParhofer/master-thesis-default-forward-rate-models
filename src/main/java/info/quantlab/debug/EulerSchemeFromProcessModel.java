@@ -189,7 +189,21 @@ public class EulerSchemeFromProcessModel  extends MonteCarloProcessFromProcessMo
 						}
 
 						final RandomVariable[]	factorLoadings		= getFactorLoading(timeIndex - 1, componentIndex, discreteProcess[timeIndex - 1]);
-
+						
+						if(false && componentIndex == 8 && (timeIndex == 407 || timeIndex == 408 || timeIndex == 409 || timeIndex == 410)) {
+							Debug.log("\nAt time Index " + timeIndex + ":\n");
+							Debug.log("Current state: " + currentState[componentIndex].get(19) + "\n");
+							Debug.log("Drift: " + driftOfComponent.get(19) + "\n");
+							Debug.log("FactorLoading:\t\t");
+							for(int factor = 0; factor < getNumberOfFactors(); factor++) {
+								Debug.log(factor + ": " + factorLoadings[factor].get(19) + ", \t");
+							}
+							Debug.log("\nBrownian Motion:\t");
+							for(int factor = 0; factor < getNumberOfFactors(); factor++) {
+								Debug.log(factor + ": " + brownianIncrement[factor].get(19) + ", \t");
+							}
+							Debug.ln();
+						}
 						// Check if the component process has stopped to evolve
 						if (factorLoadings == null) {
 							return null;

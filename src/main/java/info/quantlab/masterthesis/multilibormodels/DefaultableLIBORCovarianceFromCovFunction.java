@@ -18,6 +18,9 @@ public class DefaultableLIBORCovarianceFromCovFunction extends AbstractDefaultab
 	
 	private final double[][] _freeParameterMatrix;
 	
+	// TODO: Adjust cov Function such that if (S_10 -> 0 => _covFunc(L_1, L^d_1) -> 0, ... _covFunc(L_9, L^d_9) -> 0)
+	// BiFunction<RandomVariable[], RandomVariable[], RandomVariable> _covFunction;
+	
 	private final BinaryOperator<RandomVariable>[] _covFunction;
 
 	public DefaultableLIBORCovarianceFromCovFunction(BinaryOperator<RandomVariable>[] covFunction, double[][] freeParameterMatrix, LIBORCovarianceModel nonDefaultableModel) {

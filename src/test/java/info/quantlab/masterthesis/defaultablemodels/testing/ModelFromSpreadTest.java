@@ -25,7 +25,7 @@ import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
 import info.quantlab.debug.Debug;
-import info.quantlab.debug.EulerSchemeFromProcessModel;
+import info.quantlab.debug.FunctionsOnRandomVariables;
 import info.quantlab.easyplot.EasyPlot2D;
 import info.quantlab.masterthesis.functional.Functional;
 import info.quantlab.masterthesis.multilibormodels.DefaultableLIBORCovarianceModel;
@@ -58,6 +58,7 @@ import net.finmath.montecarlo.interestrate.products.Bond;
 import net.finmath.montecarlo.interestrate.products.Caplet;
 import net.finmath.montecarlo.interestrate.products.SwaptionGeneralizedAnalyticApproximation;
 import net.finmath.montecarlo.interestrate.products.SwaptionGeneralizedAnalyticApproximation.StateSpace;
+import net.finmath.montecarlo.process.EulerSchemeFromProcessModel;
 import net.finmath.montecarlo.process.MonteCarloProcess;
 import net.finmath.montecarlo.process.MonteCarloProcessFromProcessModel;
 import net.finmath.plots.Named;
@@ -74,17 +75,18 @@ public class ModelFromSpreadTest extends info.quantlab.debug.Time{
 	{
 		return Arrays.asList(new Object[][] {
 			// Put here an array of arrays where each array represents input for the constructor
-			{"Run 0: Baseline",						0.01, 	2, "SPREADS", 	"SPOT", 	new double[] { 0.04, 0.049, 0.062, 0.049, 0.044, 0.031 }, 0},
-			/*{"Run 1: Modelling defaultable LIBORs", 0.01, 	2, "LIBORS", 	"SPOT", 	new double[] { 0.04, 0.049, 0.062, 0.049, 0.044, 0.031 }, 1},
-			{"Run 2: Spread is 0", 					0.01, 	2, "SPREADS", 	"SPOT", 	new double[] { 0.035, 0.043, 0.05, 0.041, 0.035, 0.02 },  2},
-			{"Run 3: Rougher time delta", 			0.1, 	2, "SPREADS", 	"SPOT", 	new double[] { 0.04, 0.049, 0.062, 0.049, 0.044, 0.031 }, 3},
-			{"Run 4: Terminal Measure",			 	0.01, 	2, "SPREADS", 	"TERMINAL",	new double[] { 0.04, 0.049, 0.062, 0.049, 0.044, 0.031 }, 4},
-			{"Run 5: More free parameters", 		0.01, 	4, "SPREADS", 	"SPOT", 	new double[] { 0.04, 0.049, 0.062, 0.049, 0.044, 0.031 }, 5},*/
+			{"Run 0: Baseline",						0.01, 	2, "SPREADS",	"LOGNORMAL",	"SPOT", 	new double[] { 0.04, 0.049, 0.062, 0.049, 0.044, 0.031 }, 0},
+			{"Run 1: Modelling defaultable LIBORs", 0.01, 	2, "LIBORS", 	"NORMAL",		"SPOT", 	new double[] { 0.04, 0.049, 0.062, 0.049, 0.044, 0.031 }, 1},
+			{"Run 2: Spread with normal model",		0.01, 	2, "SPREADS",	"NORMAL",		"SPOT", 	new double[] { 0.04, 0.049, 0.062, 0.049, 0.044, 0.031 }, 0},
+			/*{"Run 2: Spread is 0", 					0.01, 	2, "SPREADS",	"LOGNORMAL", 	"SPOT", 	new double[] { 0.035, 0.043, 0.05, 0.041, 0.035, 0.02 },  2},
+			{"Run 3: Rougher time delta", 			0.1, 	2, "SPREADS",	"LOGNORMAL", 	"SPOT", 	new double[] { 0.04, 0.049, 0.062, 0.049, 0.044, 0.031 }, 3},
+			{"Run 4: Terminal Measure",			 	0.01, 	2, "SPREADS",	"LOGNORMAL", 	"TERMINAL",	new double[] { 0.04, 0.049, 0.062, 0.049, 0.044, 0.031 }, 4},
+			{"Run 5: More free parameters", 		0.01, 	4, "SPREADS",	"LOGNORMAL", 	"SPOT", 	new double[] { 0.04, 0.049, 0.062, 0.049, 0.044, 0.031 }, 5},*/
 		});
 	}
 	
-	public ModelFromSpreadTest(final String runName, final double simulationTimeDelta, final int extraFactors, final String simulationProduct, final String measure, final double[] initialRatesNonDefaultable, final int run) throws CalculationException {
-		model = getValuationModel(simulationTimeDelta, extraFactors, simulationProduct, measure, initialRatesNonDefaultable);
+	public ModelFromSpreadTest(final String runName, final double simulationTimeDelta, final int extraFactors, final String simulationProduct, final String stateSpaceOfSpread, final String measure, final double[] initialRatesNonDefaultable, final int run) throws CalculationException {
+		model = getValuationModel(simulationTimeDelta, extraFactors, simulationProduct, stateSpaceOfSpread, measure, initialRatesNonDefaultable);
 		runCount = run;
 		runningName = runName;
 	}
@@ -107,6 +109,9 @@ public class ModelFromSpreadTest extends info.quantlab.debug.Time{
 	
 	private static String runningName;
 	private static int runCount = 0; /* For saving plots*/
+	private static final int timeStepJumpForPos = 2;	
+	private static final boolean savePlots = true;
+	
 	
 	
 	private final LIBORModelMonteCarloSimulationModel model; /*Simulation model*/
@@ -140,66 +145,147 @@ public class ModelFromSpreadTest extends info.quantlab.debug.Time{
 		}
 		System.out.println("\n");*/
 		
-		// Plot Average of Defaultable model and of undefaultable model and the spread
-		DoubleUnaryOperator[] myFunctionArray = new DoubleUnaryOperator[3 * numberOfLIBORs];
-		final DoubleToIntFunction getTimeIndex = operand -> {
-			int timeIndex = model.getTimeIndex(operand);
-			return timeIndex < 0 ? - timeIndex - 2 : timeIndex;
-		};
 		
-		for(int j = 0; j < numberOfLIBORs; j++) {
-			final int compIndex = j;
-			myFunctionArray[j] = (operand) -> {
+		
+		EasyPlot2D plotAverages = null;
+		{
+			// Plot Average of Defaultable model and of undefaultable model and the spread
+			DoubleUnaryOperator[] myFunctionArray = new DoubleUnaryOperator[3 * numberOfLIBORs];
+			final DoubleToIntFunction getTimeIndex = operand -> {
+				int timeIndex = model.getTimeIndex(operand);
+				return timeIndex < 0 ? - timeIndex - 2 : timeIndex;
+			};
+			
+			for(int j = 0; j < numberOfLIBORs; j++) {
+				final int compIndex = j;
+				myFunctionArray[j] = (operand) -> {
+						try {
+							return defModel.getUndefaultableLIBOR(model.getProcess(), getTimeIndex.applyAsInt(operand), compIndex).getAverage();
+						} catch (CalculationException e) {
+							return - 1.0;
+						}
+				};
+				
+				myFunctionArray[j + numberOfLIBORs] = (operand) -> {
 					try {
-						return defModel.getUndefaultableLIBOR(model.getProcess(), getTimeIndex.applyAsInt(operand), compIndex).getAverage();
+						return defModel.getDefaultableLIBOR(model.getProcess(), getTimeIndex.applyAsInt(operand), compIndex).getAverage();
 					} catch (CalculationException e) {
 						return - 1.0;
 					}
-			};
+				};
+				
+				myFunctionArray[j + 2 * numberOfLIBORs] = (operand) -> {
+					try {
+						return defModel.getLIBORSpreadAtGivenTime(model.getProcess(), operand, compIndex).getAverage();
+					} catch (CalculationException e) {
+						return - 1.0;
+					}
+				};
+			}
 			
-			myFunctionArray[j + numberOfLIBORs] = (operand) -> {
-				try {
-					return defModel.getDefaultableLIBOR(model.getProcess(), getTimeIndex.applyAsInt(operand), compIndex).getAverage();
-				} catch (CalculationException e) {
-					return - 1.0;
-				}
-			};
-			
-			myFunctionArray[j + 2 * numberOfLIBORs] = (operand) -> {
-				try {
-					return defModel.getLIBORSpreadAtGivenTime(model.getProcess(), operand, compIndex).getAverage();
-				} catch (CalculationException e) {
-					return - 1.0;
-				}
-			};
+			List<DoubleUnaryOperator> myList = Arrays.asList(myFunctionArray);
+			List<Named<DoubleUnaryOperator>> myFunctionList =
+					myList.stream().map(operator -> new Named<DoubleUnaryOperator>(
+							(myList.indexOf(operator) / 5d < 1.0 ? "LIBOR " : myList.indexOf(operator) / 5d < 2.0 ? "Defaultable " : "Spread ") + 
+							(myList.indexOf(operator) % 5), operator)).
+					collect(Collectors.toList());
+			plotAverages = new EasyPlot2D(model.getTime(0), model.getTimeDiscretization().getLastTime(), 51, myFunctionList);
+			plotAverages.setTitle("Average of LIBORs and Spreads (" + runningName + ")");
+			plotAverages.setIsLegendVisible(true);
 		}
 		
-		List<DoubleUnaryOperator> myList = Arrays.asList(myFunctionArray);
-		List<Named<DoubleUnaryOperator>> myFunctionList =
-				myList.stream().map(operator -> new Named<DoubleUnaryOperator>(
-						(myList.indexOf(operator) / 5d < 1.0 ? "LIBOR " : myList.indexOf(operator) / 5d < 2.0 ? "Defaultable " : "Spread ") + 
-						(myList.indexOf(operator) % 5), operator)).
-				collect(Collectors.toList());
-		EasyPlot2D plot = new EasyPlot2D(model.getTime(0), model.getTimeDiscretization().getLastTime(), 51, myFunctionList);
-		plot.setTitle("Average of LIBORs and Spreads (" + runningName + ")");
-		plot.setIsLegendVisible(true);
-		
-		boolean savePlots = false;
-		
 		if(savePlots) {
+			final int numberOfPathsToPlot = 100;
+			// If we don't have to look at the plots now we can dump all Infos we have into different plots:
+			final DoubleToIntFunction getTimeIndex = operand -> {
+				int timeIndex = model.getTimeIndex(operand);
+				return timeIndex < 0 ? - timeIndex - 2 : timeIndex;
+			};
+
+			EasyPlot2D plotPathsOfNonDefLIBOR[] = new EasyPlot2D[model.getNumberOfLibors()];
+			EasyPlot2D plotPathsOfDefLIBOR[] = new EasyPlot2D[model.getNumberOfLibors()];
+			EasyPlot2D plotPathsOfSpread[] = new EasyPlot2D[model.getNumberOfLibors()];
+			for(int liborIndex = 0; liborIndex < model.getNumberOfLibors(); liborIndex++) {
+				final int libor = liborIndex;
+				// Plot Average of Defaultable model and of undefaultable model and the spread
+				DoubleUnaryOperator[] fArrayNonDefModel = new DoubleUnaryOperator[numberOfPathsToPlot];
+				DoubleUnaryOperator[] fArrayDefModel = new DoubleUnaryOperator[numberOfPathsToPlot];
+				DoubleUnaryOperator[] fArraySpreadModel = new DoubleUnaryOperator[numberOfPathsToPlot];
+				
+				for(int path = 0; path < numberOfPathsToPlot; path++) {
+					final int pathIndex = path;
+					fArrayNonDefModel[path] = (operand) -> {
+							try {
+								return defModel.getUndefaultableLIBOR(model.getProcess(), getTimeIndex.applyAsInt(operand), libor).get(pathIndex);
+							} catch (CalculationException e) {
+								return - 1.0;
+							}
+					};
+					
+					fArrayDefModel[path] = (operand) -> {
+						try {
+							return defModel.getDefaultableLIBOR(model.getProcess(), getTimeIndex.applyAsInt(operand), libor).get(pathIndex);
+						} catch (CalculationException e) {
+							return - 1.0;
+						}
+					};
+					
+					fArraySpreadModel[path] = (operand) -> {
+						try {
+							return defModel.getLIBORSpreadAtGivenTime(model.getProcess(), operand, libor).get(pathIndex);
+						} catch (CalculationException e) {
+							return - 1.0;
+						}
+					};
+				}
+				List<DoubleUnaryOperator> fListNonDefModel = Arrays.asList(fArrayNonDefModel);
+				List<Named<DoubleUnaryOperator>> fListNamedNonDefModel =
+						fListNonDefModel.stream().map(operator -> new Named<DoubleUnaryOperator>(
+								"Path " + fListNonDefModel.indexOf(operator), operator)).collect(Collectors.toList());
+				plotPathsOfNonDefLIBOR[libor] = new EasyPlot2D(model.getTime(0), model.getTimeDiscretization().getLastTime(), 51, fListNamedNonDefModel);
+				plotPathsOfNonDefLIBOR[libor].setTitle("Sample Paths non Defaultable LIBOR " + libor + " (" + runningName + ")");
+				
+				List<DoubleUnaryOperator> fListDefModel = Arrays.asList(fArrayDefModel);
+				List<Named<DoubleUnaryOperator>> fListNamedDefModel =
+						fListDefModel.stream().map(operator -> new Named<DoubleUnaryOperator>("Path " + fListDefModel.indexOf(operator), operator)).collect(Collectors.toList());
+				plotPathsOfDefLIBOR[libor] = new EasyPlot2D(model.getTime(0), model.getTimeDiscretization().getLastTime(), 51, fListNamedDefModel);
+				plotPathsOfDefLIBOR[libor].setTitle("Sample Paths Defaultable LIBOR " + libor + " (" + runningName + ")");
+				
+				List<DoubleUnaryOperator> fListSpreadModel = Arrays.asList(fArraySpreadModel);
+				List<Named<DoubleUnaryOperator>> fListNamedSpreadModel =
+						fListSpreadModel.stream().map(operator -> new Named<DoubleUnaryOperator>(
+								"Path " + fListSpreadModel.indexOf(operator), operator)).collect(Collectors.toList());
+				plotPathsOfSpread[libor] = new EasyPlot2D(model.getTime(0), model.getTimeDiscretization().getLastTime(), 51, fListNamedSpreadModel);
+				plotPathsOfSpread[libor].setTitle("Sample Paths Spread " + libor + " (" + runningName + ")");
+			}
+			
 			String timeStamp = new SimpleDateFormat("MM-dd-yyyy_HH-mm-ss-SSSS").format(new Date());
-			String pathString = "Graphs\\" + timeStamp + "\\";
+			String pathString = "Graphs\\" + timeStamp + "_" + runningName.substring(7) + "\\";
 			File directory = new File(pathString);
 			if(!directory.exists())
 				directory.mkdirs();
+			
 			File picFile = new File(pathString + "Run_" + runCount + ".png");
-			plot.saveAsPNG(picFile, 1200, 1200);
+			plotAverages.saveAsPNG(picFile, 1200, 1200);
+			for(int liborIndex = 0; liborIndex < model.getNumberOfLibors(); liborIndex++) {
+				File pathPicFileNonDefLIBOR = new File(pathString + "Sample Paths non Defaultable LIBOR " + liborIndex + ".png");
+				plotPathsOfNonDefLIBOR[liborIndex].saveAsPNG(pathPicFileNonDefLIBOR, 1200, 1200);
+				
+				File pathPicFileDefLIBOR = new File(pathString + "Sample Paths Defaultable LIBOR " + liborIndex + ".png");
+				plotPathsOfDefLIBOR[liborIndex].saveAsPNG(pathPicFileDefLIBOR, 1200, 1200);	
+				
+				File pathPicFileSpread = new File(pathString + "Sample Paths Spread " + liborIndex + ".png");
+				plotPathsOfSpread[liborIndex].saveAsPNG(pathPicFileSpread, 1200, 1200);				
+			}
+			
+			
+			
 			File specsFile = new File(pathString + "Run_" + runCount + "_Specs.txt");
 			if(!writeSpecsToFile(specsFile))
 				System.out.println("\nSaving Specs failed.");
 		}
 		else
-			plot.show();
+			plotAverages.show();
 		
 		
 		
@@ -299,15 +385,57 @@ public class ModelFromSpreadTest extends info.quantlab.debug.Time{
 	
 	@Test
  	public void testPositivity() throws CalculationException {
+		System.out.println("\n\nTesting Spread for Positivity (" + runningName + "):\n");
+		double minimum = Double.POSITIVE_INFINITY;
+		int timeIndexOfLowestSpread = -1;
+		int liborIndexOfLowestSpread = -1;
+		int pathIndexOfLowestSpread = -1;
+		System.out.println("LIBOR -index/-time | Minimum Spread      time      path");
+		DefaultableLIBORMarketModel defModel = (DefaultableLIBORMarketModel)model.getModel();
+		for(int libor = 0; libor < model.getNumberOfLibors(); libor++) {
+			double minAtLIBOR = Double.POSITIVE_INFINITY;
+			int pathAtLIBOR = 0;
+			int timeAtLIBOR = 0;
+			final double liborTime = model.getLiborPeriod(libor);
+			for(int timeIndex = 0; timeIndex < model.getTimeDiscretization().getNumberOfTimes() / timeStepJumpForPos; timeIndex++) {
+				final RandomVariable spreadAtTimeIndex = defModel.getLIBORSpreadAtGivenTimeIndex(model.getProcess(), timeIndex, libor);
+				final double minAtTimeIndex = spreadAtTimeIndex.getMin();
+				if(minAtTimeIndex < minAtLIBOR) {
+					minAtLIBOR = minAtTimeIndex;
+					pathAtLIBOR = FunctionsOnRandomVariables.findFirstPathWithValue(spreadAtTimeIndex, minAtTimeIndex);
+					timeAtLIBOR = timeIndex;
+				}
+				if(liborTime <= model.getTime(timeIndex))
+					// No need for further Evaluation, Spread stays the same from hereon
+					break;
+			}
+			// Print result for LIBOR:
+			System.out.printf("LIBOR %2d    %4.2f   | ", libor, liborTime);
+			System.out.printf("%11s        ", formatterDeviation.format(minAtLIBOR));
+			System.out.printf("%4d        ", timeAtLIBOR);
+			System.out.printf("%6d %n", pathAtLIBOR);
+			// Adjust General smallest value
+			if(minAtLIBOR < minimum) {
+				minimum = minAtLIBOR;
+				pathIndexOfLowestSpread = pathAtLIBOR;
+				timeIndexOfLowestSpread = timeAtLIBOR;
+				liborIndexOfLowestSpread = libor;
+			}
+			
+		}
 		
-		Assert.assertTrue(true);
+		System.out.println("\nOverall Minimum is:");
+		System.out.printf("LIBOR %2d    %4.2f   | ", liborIndexOfLowestSpread, model.getLiborPeriod(liborIndexOfLowestSpread));
+		System.out.printf("%11s        ", formatterDeviation.format(minimum));
+		System.out.printf("%4d        ", timeIndexOfLowestSpread);
+		System.out.printf("%6d", pathIndexOfLowestSpread);
+		System.out.println();
+		System.out.println("\n" + "_".repeat(300) + "\n");
+		Assert.assertTrue(minimum > -1E-5);
 	}
 	
 	@Test
  	public void testCaplet() throws CalculationException {
-		/*
-		 * Value a caplet
-		 */
 		System.out.println("\nCaplet prices (" + runningName + "):\n");
 		System.out.println("                    Defaultable Caplets                                     |                        Non-Defaultable Caplets");
 		System.out.println("Maturity       Strike          Simulation     Analytic       Deviation      |  Simulation         FinMath-Caplet      Analytic      FinMath-Analytic from swaption");
@@ -354,9 +482,6 @@ public class ModelFromSpreadTest extends info.quantlab.debug.Time{
 		System.out.println("Maximum abs deviation: " + formatterDeviation.format(maxAbsDeviation));
 		System.out.println("_".repeat(300) + "\n");
 		
-		/*
-		 * jUnit assertion: condition under which we consider this test successful
-		 */
 		Assert.assertTrue(Math.abs(maxAbsDeviation) < 8E-3);
 	}
 	
@@ -395,7 +520,7 @@ public class ModelFromSpreadTest extends info.quantlab.debug.Time{
 		Assert.assertTrue(absDev < 1E-3);
 	}
 	
-	private static LIBORModelMonteCarloSimulationModel getValuationModel(double simulationTimeDelta, int numberOfExtraFactors, String simulationProduct, String measure, double[] initialRatesDefaultable) throws CalculationException {
+	private static LIBORModelMonteCarloSimulationModel getValuationModel(double simulationTimeDelta, int numberOfExtraFactors, String simulationProduct, String stateSpaceOfSpread, String measure, double[] initialRatesDefaultable) throws CalculationException {
 		
 		// Set LIBOR times
 		TimeDiscretization liborPeriods = new TimeDiscretizationFromArray(0.0, numberOfLiborPeriods, liborPeriodLength); // Fixing time
@@ -459,6 +584,7 @@ public class ModelFromSpreadTest extends info.quantlab.debug.Time{
 				liborPeriodLength);
 		
 		properties.put("simulationModel", simulationProduct);
+		properties.put("stateSpaceOfSpread", stateSpaceOfSpread);
 		
 		final DefaultableLIBORCovarianceModel defaultableCovariance = new DefaultableLIBORCovarianceWithGuaranteedPositiveSpread(baseCovarianceModel, generateFreeParameterMatrix(numberOfExtraFactors));
 		//final DefaultableLIBORCovarianceModel defaultableCovariance = new DefaultableLIBORCovarianceWithInitialUndefaultableCovariance(baseCovarianceModel, defaultableForwards, nonDefaultableForwards, numberOfExtraFactors, 0.5);
