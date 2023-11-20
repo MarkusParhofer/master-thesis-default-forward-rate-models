@@ -1,0 +1,10 @@
+
+Caplet prices (Run 1: Modelling defaultable LIBORs):
+
+                    Defaultable Caplets                                     |                        Non-Defaultable Caplets
+Maturity       Strike          Simulation     Analytic       Deviation      |  Simulation         FinMath-Caplet      Analytic      FinMath-Analytic from swaption
+02.00           06.200%         18.043%        17.377%       6.66092E-03    |   16.795%             16.795%           16.164%        16.164%
+04.00           04.900%         22.517%        20.245%       2.27216E-02    |   22.201%             22.201%           19.953%        19.953%
+06.00           04.650%         28.152%        21.231%       6.92037E-02    |   28.230%             28.230%           21.260%        21.260%
+08.00           04.400%         32.303%        21.383%       1.09201E-01    |   32.939%             32.939%           21.749%        21.749%
+Maximum abs deviation:  1.09201E-01
