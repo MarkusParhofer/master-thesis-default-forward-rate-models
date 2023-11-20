@@ -1,0 +1,60 @@
+Model Specs:
+
+LiborPeriods:
+0.0 5 2.0
+
+TimeDiscretization:
+0.0 8000 0.0010273972602739725
+
+DefaultableCovarianceModel: class net.finmath.montecarlo.interestrate.models.covariance.LIBORCovarianceModelFromVolatilityAndCorrelation
+NumberOfFactors=5
+Parameters=[0.10000 0.00000 0.25000 0.10000 0.20000 ]
+
+DefaultableCovarianceModel: class info.quantlab.masterthesis.multilibormodels.DefaultableLIBORCovarianceWithGuaranteedPositiveSpread
+NumberOfFactors=7
+FreeParameters=
+-0.02367390497709 0.09965748074140 
+0.02751751365220 -0.06068205342332 
+-0.09848852000110 -0.08345352012580 
+-0.01522847358780 -0.08899010290971 
+0.07713809252717 -0.04096062985202 
+
+NonDefaultableForwardCurve: class net.finmath.marketdata.model.curves.ForwardCurveInterpolation
+Times=[0.50000 1.00000 2.00000 4.00000 8.00000 25.00000 ]
+Values=[0.03500 0.04300 0.05000 0.04100 0.03500 0.02000 ]
+
+NonDefaultableModel: class net.finmath.montecarlo.interestrate.models.LIBORMarketModelFromCovarianceModel
+Measure=SPOT
+InterpolationMethod=LOG_LINEAR_UNCORRECTED
+StateSpace=NORMAL
+DriftApproximationMethod=EULER
+
+DefaultableForwardCurve: class net.finmath.marketdata.model.curves.ForwardCurveInterpolation
+Times=[0.50000 1.00000 2.00000 4.00000 8.00000 25.00000 ]
+Values=[0.04000 0.04900 0.06200 0.04900 0.04400 0.03100 ]
+
+ProcessModel: class info.quantlab.masterthesis.multilibormodels.DefaultableLIBORFromSpreadDynamic
+Measure=SPOT
+InterpolationMethod=LOG_LINEAR_UNCORRECTED
+StateSpace=NORMAL
+HandleSimulationTime=ROUND_NEAREST
+SimulationModel=LIBORS
+
+BrownianMotion: class net.finmath.montecarlo.BrownianMotionFromMersenneRandomNumbers
+NumberOfPaths=10000
+Seed=4587
+
+MCProcess: class info.quantlab.debug.EulerSchemeFromProcessModel
+Scheme=EULER
+
+SimulationModel: class net.finmath.montecarlo.interestrate.LIBORMonteCarloSimulationFromLIBORModel
+
+LIBORMarketModelFromCovarianceModel [liborPeriodDiscretization=TimeDiscretizationFromArray [timeDiscretizationFromArray=[0.0, 2.0, 4.0, 6.0, 8.0, 10.0], timeTickSize=1.1415525114155251E-4], curveModel=null, forwardRateCurve=ForwardCurve [AbstractForwardCurve [CurveFromInterpolationPoints [points=[Point [time=0.5, value=0.035, isParameter=true], Point [time=1.0, value=0.043, isParameter=true], Point [time=2.0, value=0.05, isParameter=true], Point [time=4.0, value=0.041, isParameter=true], Point [time=8.0, value=0.035, isParameter=true], Point [time=25.0, value=0.02, isParameter=true]], pointsBeingParameters=[Point [time=0.5, value=0.035, isParameter=true], Point [time=1.0, value=0.043, isParameter=true], Point [time=2.0, value=0.05, isParameter=true], Point [time=4.0, value=0.041, isParameter=true], Point [time=8.0, value=0.035, isParameter=true], Point [time=25.0, value=0.02, isParameter=true]], interpolationMethod=LINEAR, extrapolationMethod=CONSTANT, interpolationEntity=VALUE, rationalFunctionInterpolation=net.finmath.interpolation.RationalFunctionInterpolation@6ee4d9ab, toString()=AbstractCurve [name=nonDefaultableForwardCurve, referenceDate=null],
+5,00000000E-1	null	0.035
+1,00000000E0	null	0.043
+2,00000000E0	null	0.05
+4,00000000E0	null	0.041
+8,00000000E0	null	0.035
+2,50000000E1	null	0.02
+], discountCurveName=null, paymentOffsetCode=null, paymentBusinessdayCalendar=null, paymentDateRollConvention=null], interpolationEntityForward=FORWARD], discountCurve=AbstractCurve [name=DiscountCurveFromForwardCurvenonDefaultableForwardCurve), referenceDate=null], covarianceModel=AbstractLIBORCovarianceModelParametric [getParameter()=[0.1, 0.0, 0.25, 0.1, 0.2]], driftApproximationMethod=EULER, measure=SPOT, stateSpace=NORMAL]
+

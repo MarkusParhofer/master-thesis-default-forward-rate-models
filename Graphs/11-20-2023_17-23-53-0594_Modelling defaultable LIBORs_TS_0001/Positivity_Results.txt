@@ -1,0 +1,11 @@
+Testing Spread for Positivity (Run 1: Modelling defaultable LIBORs):
+
+LIBOR -index/-time | Minimum Spread      time      path
+LIBOR  0    0,00   |  5.00000E-03           0             0 
+LIBOR  1    2,00   |  1.41181E-05        1075          2685 
+LIBOR  2    4,00   |  1.08460E-04        2851           587 
+LIBOR  3    6,00   |  3.31614E-04        3711          6302 
+LIBOR  4    8,00   |  2.64832E-04        2350          7886 
+
+Overall Minimum is:
+LIBOR  1    2,00   |  1.41181E-05        1075          2685

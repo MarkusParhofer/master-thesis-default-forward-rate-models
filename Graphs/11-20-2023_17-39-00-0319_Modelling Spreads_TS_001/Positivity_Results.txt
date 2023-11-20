@@ -1,0 +1,11 @@
+Testing Spread for Positivity (Run 0: Baseline):
+
+LIBOR -index/-time | Minimum Spread      time      path
+LIBOR  0    0,00   |  5.00000E-03           0             0 
+LIBOR  1    2,00   |  9.84778E-05         112          1932 
+LIBOR  2    4,00   |  5.65914E-05         390          5449 
+LIBOR  3    6,00   |  3.79946E-04         278          4239 
+LIBOR  4    8,00   |  2.39468E-04         397           257 
+
+Overall Minimum is:
+LIBOR  2    4,00   |  5.65914E-05         390          5449
