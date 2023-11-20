@@ -14,9 +14,10 @@ Master's thesis to implement defaultable forward rate models for the valuation o
 
 The classes are embedded into the framework of the Finmath library of Prof. Dr. Christian Fries. 
 Packages:
-- **info.quantlab.masterthesis.defaultablelibormodels:** This is the heart of the repository. Here we have the classes that implement the defaultable LIBOR Market models. They can be used as a plug in for the EulerSchemeFromProcessModel class of the finmath lib. I recommend using "DefaultableLIBORFromSpreadDynamic".
+- **info.quantlab.masterthesis.defaultablelibormodels:** This is the heart of the repository. Here we have the classes that implement the defaultable LIBOR Market models. They can be used as a plug in for the EulerSchemeFromProcessModel class of the finmath lib. I recommend using DefaultableLIBORFromSpreadDynamic.
 - **info.quantlab.masterthesis.defaultablecovariancemodels:** This package holds the covariance models for plugging into the DefaultableLiborMarketModel. I recommend using "DefaultableLIBORCovarianceWithGuaranteedPositiveSpread". Other models have not been tested or are not working correctly.
-- **info.quantlab.masterthesis.products:** 
+- **info.quantlab.masterthesis.multilibormodels:** Holds the class for the usage with multiple defaultable libor models.
+- **info.quantlab.masterthesis.products:** Implements some defaultable products that are designed for the usage with the DefaultableLiborMarketModel and the MultiLiborVectorModel
 - **info.quantlab.masterthesis.functional:** Class with static functions for flexible use of BrownianMotions and MonteCarloProcesses.
 - **info.quantlab.easyplot:** Has Class to plot various content with easy access to the plots styles.
 - **info.quantlab.debug:** Has tools and classes that are good for debugging.
