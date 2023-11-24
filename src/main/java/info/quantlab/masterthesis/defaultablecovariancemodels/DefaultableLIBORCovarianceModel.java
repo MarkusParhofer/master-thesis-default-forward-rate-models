@@ -1,145 +1,86 @@
-/**
- * 
- */
 package info.quantlab.masterthesis.defaultablecovariancemodels;
 
-import java.util.Map;
-
-import info.quantlab.masterthesis.defaultablelibormodels.DefaultableLIBORWithPositiveSpread;
-import net.finmath.exception.CalculationException;
-import net.finmath.montecarlo.interestrate.LIBORMarketModel;
+import net.finmath.montecarlo.interestrate.models.covariance.LIBORCovarianceModel;
 import net.finmath.stochastic.RandomVariable;
-import net.finmath.time.TimeDiscretization;
+import net.finmath.stochastic.Scalar;
 
-/**
- * Interface for covariance models providing a vector of (possibly stochastic) factor loadings for defaultable LIBOR Models.
- * 
- * The factor loading is the vector <i>f<sub>i</sub></i> such that the scalar product <br>
- * <i>f<sub>j</sub>f<sub>k</sub> = f<sub>j,1</sub>f<sub>k,1</sub> + ... + f<sub>j,m</sub>f<sub>k,m</sub></i> <br>
- * is the instantaneous covariance of the component <i>j</i> and <i>k</i>.
- *
- * Classes implementing this interface can be used as "plug ins" for {@link DefaultableLIBORWithPositiveSpread}.
- *
- * @author Markus Parhofer
- * @version 0.1
- */
-public interface DefaultableLIBORCovarianceModel {
-	/**
-	 * Return the factor loading for a given time and a given component.
-	 *
-	 * The factor loading is the vector <i>f<sub>i</sub></i> such that the scalar product <br>
-	 * <i>f<sub>j</sub>f<sub>k</sub> = f<sub>j,1</sub>f<sub>k,1</sub> + ... + f<sub>j,m</sub>f<sub>k,m</sub></i> <br>
-	 * is the instantaneous covariance of the component <i>j</i> and <i>k</i>.
-	 *
-	 * @param time The time <i>t</i> at which factor loading is requested.
-	 * @param component The component time (as a double associated with the fixing of the forward rate)  <i>T<sub>i</sub></i>.
-	 * @param defaultableRealization The realization of the stochastic (defaultable) process.
-	 * @param undefaultableRealization The realizations of the stochastic undefaultable process.
-	 * @return The factor loading <i>f<sub>i</sub>(t)</i>.
-	 */
-	RandomVariable[] getFactorLoading(double time, double component, RandomVariable[] defaultableRealization, RandomVariable[] undefaultableRealization);
+public interface DefaultableLIBORCovarianceModel extends LIBORCovarianceModel {
+	
+	public LIBORCovarianceModel getNonDefaultableCovarianceModel();
+	
+	public DefaultableLIBORCovarianceModel getCloneWithModifiedNonDefaultableCovariance(LIBORCovarianceModel newUndefaultableCovarianceModel);
 	
 	/**
-	 * Return the factor loading for a given time and a given component.
+	 * Get the parameters of determining this parametric
+	 * covariance model as double array. The parameters are usually free parameters
+	 * which may be used in calibration.
 	 *
-	 * The factor loading is the vector <i>f<sub>i</sub></i> such that the scalar product <br>
-	 * <i>f<sub>j</sub>f<sub>k</sub> = f<sub>j,1</sub>f<sub>k,1</sub> + ... + f<sub>j,m</sub>f<sub>k,m</sub></i> <br>
-	 * is the instantaneous covariance of the component <i>j</i> and <i>k</i>.
-	 *
-	 * @param time The time <i>t</i> at which factor loading is requested.
-	 * @param componentIndex The component index.
-	 * @param defaultableRealization The realization of the stochastic (defaultable) process.
-	 * @param undefaultableRealization The realizations of the stochastic undefaultable process.
-	 * @return The factor loading <i>f<sub>i</sub>(t)</i>.
+	 * @return Parameter vector.
 	 */
-	RandomVariable[] getFactorLoading(double time, int componentIndex, RandomVariable[] defaultableRealization, RandomVariable[] undefaultableRealization);
+	public double[] getParameterAsDouble();
 	
 	/**
-	 * Return the factor loading for a given time and a given component.
+	 * Get the parameters of determining this parametric
+	 * covariance model. The parameters are usually free parameters
+	 * which may be used in calibration.
 	 *
-	 * The factor loading is the vector <i>f<sub>i</sub></i> such that the scalar product <br>
-	 * <i>f<sub>j</sub>f<sub>k</sub> = f<sub>j,1</sub>f<sub>k,1</sub> + ... + f<sub>j,m</sub>f<sub>k,m</sub></i> <br>
-	 * is the instantaneous covariance of the component <i>j</i> and <i>k</i>.
-	 *
-	 * @param timeIndex The time index <i>t</i><sub>i</sub> at which factor loading is requested.
-	 * @param componentIndex The component index.
-	 * @param defaultableRealization The realization of the stochastic (defaultable) process.
-	 * @param undefaultableRealization The realizations of the stochastic undefaultable process.
-	 * @return The factor loading <i>f<sub>i</sub>(t)</i>.
+	 * @return Parameter vector.
 	 */
-	RandomVariable[] getFactorLoading(int timeIndex, int componentIndex, RandomVariable[] defaultableRealization, RandomVariable[] undefaultableRealization);
+	public default RandomVariable[]	getParameter() {
+		final double[] parameterAsDouble = this.getParameterAsDouble();
+		final RandomVariable[] parameter = new RandomVariable[parameterAsDouble.length];
+		for(int i=0; i<parameter.length; i++) {
+			parameter[i] = new Scalar(parameterAsDouble[i]);
+		}
+		return parameter;
+	}
 	
 	/**
-	 * Returns the instantaneous covariance calculated from factor loadings.
-	 *
-	 * @param time The time <i>t</i> at which covariance is requested.
-	 * @param component1 Index of component <i>i</i>.
-	 * @param component2  Index of component <i>j</i>.
-	 * @param defaultableRealization The realization of the stochastic (defaultable) process.
-	 * @param undefaultableRealization The realizations of the stochastic undefaultable process.
-	 * @return The instantaneous covariance between component <i>i</i> and  <i>j</i>.
+	 * Gets the number of Parameters.
 	 */
-	RandomVariable getCovariance(double time, int component1, int component2, RandomVariable[] defaultableRealization, RandomVariable[] undefaultableRealization);
+	public int getNumberOfParameters();
 	
 	/**
-	 * Returns the instantaneous covariance calculated from factor loadings.
+	 * Return an instance of this model using a new set of parameters.
+	 * Note: To improve performance it is admissible to return the same instance of the object given that the parameters have not changed. Models should be immutable.
 	 *
-	 * @param timeIndex The time index <i>t</i><sub>i</sub> at which covariance is requested.
-	 * @param component1 Index of component <i>i</i>.
-	 * @param component2  Index of component <i>j</i>.
-	 * @param defaultableRealization The realization of the stochastic (defaultable) process.
-	 * @param undefaultableRealization The realizations of the stochastic undefaultable process.
-	 * @return The instantaneous covariance between component <i>i</i> and  <i>j</i>.
+	 * @param parameters The new set of parameters.
+	 * @return An instance of AbstractLIBORCovarianceModelParametric with modified parameters.
 	 */
-	RandomVariable getCovariance(int timeIndex, int component1, int component2, RandomVariable[] defaultableRealization, RandomVariable[] undefaultableRealization);
+	public DefaultableLIBORCovarianceModel getCloneWithModifiedParameters(double[] parameters);
 
 	/**
-	 * Gets the underlying undefaultable Model. Hence a reference LIBOR Market Model.
-	 * @return Undefaultable LIBOR Market Model
+	 * Return an instance of this model using a new set of parameters.
+	 * Note: To improve performance it is admissible to return the same instance of the object given that the parameters have not changed. Models should be immutable.
+	 *
+	 * @param parameters The new set of parameters.
+	 * @return An instance of AbstractLIBORCovarianceModelParametric with modified parameters.
 	 */
-	LIBORMarketModel getUnderlyingUndefaultableModel();
+	public DefaultableLIBORCovarianceModel getCloneWithModifiedParameters(final RandomVariable[] parameters);
+
+	/**
+	 * Returns the Factor Loading for the specified time and component index. While the realizations are separated here, the component index is still
+	 * the index for the whole model i.e. if <code>component</code> &lt; <code>getNumberOfLIBORPeriods()</code> this function will return 
+	 * the factor loading of the non-defaultable model, otherwise the ones from the defaultable model.
+	 * 
+	 * @param timeIndex The time index at which the factor loading is requested.
+	 * @param component The component index for which the factor loading is requested. If &lt; <code>getNumberOfLIBORPeriods()</code> this will give 
+	 * the factor loading of the non-defaultable model.
+	 * @param realizationAtTimeIndex The realization of the defaultable model (and only the defaultable model).
+	 * @param undefaultableRealization The realization of the non defaultable model.
+	 * @return The factor loading.
+	 */
+	public RandomVariable[] getFactorLoading(int timeIndex, int component, RandomVariable[] realizationAtTimeIndex, RandomVariable[] undefaultableRealization);
 	
-	/**
-	 * The simulation time discretization associated with this model.
-	 *
-	 * @return the timeDiscretizationFromArray
-	 */
-	TimeDiscretization getTimeDiscretization();
-
-	/**
-	 * The forward rate time discretization associated with this model (defines the components).
-	 *
-	 * @return the forward rate time discretization associated with this model.
-	 */
-	TimeDiscretization getLiborPeriodDiscretization();
-
-	/**
-	 * @return the numberOfFactors
-	 */
-	int getNumberOfFactors();
-
-	/**
-	 * Returns a clone of this model where the underlying undefaultable Market Situation has changed.
-	 * @param newUndefaultableModel The new underlying Market Situation.
-	 * @return clone with modified data.
-	 */
-	DefaultableLIBORCovarianceModel getCloneWithModifiedUndefaultableModel(LIBORMarketModel newUndefaultableModel);
+	public int getNumberOfLIBORPeriods();
 	
-	/**
-	 * Returns a clone of this model where the specified properties have been modified.
-	 *
-	 * Note that there is no guarantee that a model reacts on a specification of a properties in the
-	 * parameter map <code>dataModified</code>. If data is provided which is ignored by the model
-	 * no exception may be thrown.
-	 *
-	 * Furthermore the structure of the covariance model has to match changed data.
-	 * A change of the time discretizations may requires a change in the parameters
-	 * but this function will just insert the new time discretization without
-	 * changing the parameters. An exception may not be thrown.
-	 *
-	 * @param dataModified Key-value-map of parameters to modify.
-	 * @return A clone of this model (or a new instance of this model if no parameter was modified).
-	 * @throws CalculationException Thrown when the model could not be created.
-	 */
-	DefaultableLIBORCovarianceModel getCloneWithModifiedData(Map<String, Object> dataModified) throws CalculationException;
+	public default RandomVariable[] getFactorLoadingOfSpread(int timeIndex, int component, RandomVariable[] realizationAtTimeIndex) {
+		throw new UnsupportedOperationException("Spread dynamic is not implemented for this covariance Model!");
+	}
+	
+	public default boolean isSpreadModelLogNormal() {
+		return false;
+	}
+	
+	public RandomVariable[] getFactorLoadingOfSpread(double time, int component, RandomVariable[] realizationAtTimeIndex);
 }

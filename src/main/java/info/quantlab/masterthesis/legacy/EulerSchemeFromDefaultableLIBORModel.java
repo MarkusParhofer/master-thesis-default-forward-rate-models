@@ -1,21 +1,19 @@
 /**
  * 
  */
-package info.quantlab.masterthesis.defaultableliborsimulation;
+package info.quantlab.masterthesis.legacy;
 
 import java.util.Map;
 
 import org.apache.commons.lang3.Validate;
 
-import info.quantlab.masterthesis.defaultablelibormodels.DefaultableLIBORMarketModel;
-import info.quantlab.masterthesis.functional.Functional;
+import info.quantlab.masterthesis.functional.FunctionsOnIndependentIncrements;
 import net.finmath.exception.CalculationException;
 import net.finmath.montecarlo.IndependentIncrements;
 import net.finmath.montecarlo.interestrate.LIBORMarketModel;
 import net.finmath.montecarlo.model.ProcessModel;
 import net.finmath.montecarlo.process.EulerSchemeFromProcessModel;
 import net.finmath.montecarlo.process.MonteCarloProcess;
-import net.finmath.montecarlo.process.EulerSchemeFromProcessModel.Scheme;
 import net.finmath.stochastic.RandomVariable;
 import net.finmath.time.TimeDiscretization;
 
@@ -41,7 +39,7 @@ public class EulerSchemeFromDefaultableLIBORModel implements MonteCarloProcessWi
 		
 		// Monte Carlo Valuation for undefaultable Model
 		LIBORMarketModel underlyingModel = defaultableLIBORModel.getUnderlyingNonDefaultableModel();
-		IndependentIncrements reducedFactorBM = Functional.getFirstFactors(stochasticDriver, underlyingModel.getNumberOfFactors());
+		IndependentIncrements reducedFactorBM = FunctionsOnIndependentIncrements.getFirstFactors(stochasticDriver, underlyingModel.getNumberOfFactors());
 		_undefaultableProcess = new EulerSchemeFromProcessModel(underlyingModel, reducedFactorBM);
 	}
 	
@@ -60,7 +58,6 @@ public class EulerSchemeFromDefaultableLIBORModel implements MonteCarloProcessWi
 		}
 
 		final int numberOfPaths			= this.getNumberOfPaths();
-		final int numberOfFactors		= this.getNumberOfFactors();
 		final int numberOfComponents	= this.getNumberOfComponents();
 		final TimeDiscretization times = _stochasticDriver.getTimeDiscretization();
 		
@@ -173,7 +170,7 @@ public class EulerSchemeFromDefaultableLIBORModel implements MonteCarloProcessWi
 	
 	/**
 	 * Returns the model that is simulated, which is a defaultable LIBOR market model.
-	 * @see info.quantlab.masterthesis.defaultablelibormodels.DefaultableLIBORMarketModel DefaultableLIBORMarketModel.
+	 * @see info.quantlab.masterthesis.legacy.DefaultableLIBORMarketModel DefaultableLIBORMarketModel.
 	 */
 	public DefaultableLIBORMarketModel getModel() {
 		return _model;

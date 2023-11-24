@@ -1,7 +1,7 @@
 /**
  * 
  */
-package info.quantlab.masterthesis.defaultableliborsimulation;
+package info.quantlab.masterthesis.legacy;
 
 import net.finmath.exception.CalculationException;
 import net.finmath.montecarlo.model.ProcessModel;

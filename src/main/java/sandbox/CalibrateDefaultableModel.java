@@ -3,9 +3,9 @@ package sandbox;
 import java.util.HashMap;
 import java.util.Map;
 
-import info.quantlab.masterthesis.multilibormodels.DefaultableLIBORCovarianceModel;
-import info.quantlab.masterthesis.multilibormodels.DefaultableLIBORCovarianceWithGuaranteedPositiveSpread;
-import info.quantlab.masterthesis.multilibormodels.DefaultableLIBORMarketModelFromCovarianceModel;
+import info.quantlab.masterthesis.defaultablecovariancemodels.DefaultableLIBORCovarianceModel;
+import info.quantlab.masterthesis.defaultablecovariancemodels.DefaultableLIBORCovarianceWithGuaranteedPositiveSpread;
+import info.quantlab.masterthesis.defaultablelibormodels.DefaultableLIBORMarketModelFromCovarianceModel;
 import net.finmath.exception.CalculationException;
 import net.finmath.marketdata.model.curves.DiscountCurveFromForwardCurve;
 import net.finmath.marketdata.model.curves.ForwardCurve;

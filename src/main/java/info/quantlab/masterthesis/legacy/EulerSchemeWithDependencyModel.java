@@ -1,19 +1,18 @@
 /**
  * 
  */
-package info.quantlab.masterthesis.defaultableliborsimulation;
+package info.quantlab.masterthesis.legacy;
 
 import java.util.Map;
 
 import org.apache.commons.lang3.Validate;
 
-import info.quantlab.masterthesis.functional.Functional;
+import info.quantlab.masterthesis.functional.FunctionsOnIndependentIncrements;
 import net.finmath.exception.CalculationException;
 import net.finmath.montecarlo.IndependentIncrements;
 import net.finmath.montecarlo.model.ProcessModel;
 import net.finmath.montecarlo.process.EulerSchemeFromProcessModel;
 import net.finmath.montecarlo.process.MonteCarloProcess;
-import net.finmath.montecarlo.process.EulerSchemeFromProcessModel.Scheme;
 import net.finmath.stochastic.RandomVariable;
 
 /**
@@ -33,7 +32,7 @@ public class EulerSchemeWithDependencyModel extends EulerSchemeFromProcessModel 
 		
 		Validate.isTrue(stochasticDriver.getNumberOfFactors() >= Math.max(model.getNumberOfFactors(), dependencyModel.getNumberOfFactors()), 
 				"Number of Factors of the stochastic driver must be greater or equal the maximum of the number of factors of the two specified models");
-		_dependencyProcess = new EulerSchemeFromProcessModel(dependencyModel, Functional.getFirstFactors(stochasticDriver, dependencyModel.getNumberOfFactors()));
+		_dependencyProcess = new EulerSchemeFromProcessModel(dependencyModel, FunctionsOnIndependentIncrements.getFirstFactors(stochasticDriver, dependencyModel.getNumberOfFactors()));
 	}
 
 	@Override

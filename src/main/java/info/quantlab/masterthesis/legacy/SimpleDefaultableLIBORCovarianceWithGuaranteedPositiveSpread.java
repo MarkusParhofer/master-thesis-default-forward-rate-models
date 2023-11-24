@@ -1,4 +1,4 @@
-package info.quantlab.masterthesis.defaultablecovariancemodels;
+package info.quantlab.masterthesis.legacy;
 
 import java.util.Map;
 

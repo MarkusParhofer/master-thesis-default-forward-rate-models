@@ -21,11 +21,11 @@ import org.junit.runners.Parameterized.Parameters;
 
 
 import info.quantlab.easyplot.EasyPlot2D;
-import info.quantlab.masterthesis.functional.Functional;
-import info.quantlab.masterthesis.multilibormodels.DefaultableLIBORCovarianceModel;
-import info.quantlab.masterthesis.multilibormodels.DefaultableLIBORCovarianceWithGuaranteedPositiveSpread;
-import info.quantlab.masterthesis.multilibormodels.DefaultableLIBORMarketModel;
-import info.quantlab.masterthesis.multilibormodels.DefaultableLIBORMarketModelFromCovarianceModel;
+import info.quantlab.masterthesis.defaultablecovariancemodels.DefaultableLIBORCovarianceModel;
+import info.quantlab.masterthesis.defaultablecovariancemodels.DefaultableLIBORCovarianceWithGuaranteedPositiveSpread;
+import info.quantlab.masterthesis.defaultablelibormodels.DefaultableLIBORMarketModel;
+import info.quantlab.masterthesis.defaultablelibormodels.DefaultableLIBORMarketModelFromCovarianceModel;
+import info.quantlab.masterthesis.functional.FunctionsOnMCProcess;
 import net.finmath.exception.CalculationException;
 import net.finmath.marketdata.model.curves.DiscountCurveFromForwardCurve;
 import net.finmath.marketdata.model.curves.ForwardCurve;
@@ -460,7 +460,7 @@ public class DefaultableLIBORMarketModelTest {
 
 			@Override
 			public MonteCarloProcess getProcess() {
-				return Functional.getComponentReducedMCProcess(normalProcess, 0, getModel().getNumberOfComponents() - 1);
+				return FunctionsOnMCProcess.getComponentReducedMCProcess(normalProcess, 0, getModel().getNumberOfComponents() - 1);
 			}
 
 			@Override

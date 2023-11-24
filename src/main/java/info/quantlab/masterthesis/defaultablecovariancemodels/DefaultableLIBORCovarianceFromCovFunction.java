@@ -1,4 +1,4 @@
-package info.quantlab.masterthesis.multilibormodels;
+package info.quantlab.masterthesis.defaultablecovariancemodels;
 
 import java.util.Arrays;
 import java.util.Map;

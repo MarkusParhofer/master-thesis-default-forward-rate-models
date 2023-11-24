@@ -25,13 +25,13 @@ import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 
 import info.quantlab.debug.Debug;
-import info.quantlab.debug.FunctionsOnRandomVariables;
 import info.quantlab.easyplot.EasyPlot2D;
-import info.quantlab.masterthesis.functional.Functional;
-import info.quantlab.masterthesis.multilibormodels.DefaultableLIBORCovarianceModel;
-import info.quantlab.masterthesis.multilibormodels.DefaultableLIBORCovarianceWithGuaranteedPositiveSpread;
-import info.quantlab.masterthesis.multilibormodels.DefaultableLIBORFromSpreadDynamic;
-import info.quantlab.masterthesis.multilibormodels.DefaultableLIBORMarketModel;
+import info.quantlab.masterthesis.defaultablecovariancemodels.DefaultableLIBORCovarianceModel;
+import info.quantlab.masterthesis.defaultablecovariancemodels.DefaultableLIBORCovarianceWithGuaranteedPositiveSpread;
+import info.quantlab.masterthesis.defaultablelibormodels.DefaultableLIBORFromSpreadDynamic;
+import info.quantlab.masterthesis.defaultablelibormodels.DefaultableLIBORMarketModel;
+import info.quantlab.masterthesis.functional.FunctionsOnMCProcess;
+import info.quantlab.masterthesis.functional.FunctionsOnRandomVariables;
 import info.quantlab.masterthesis.products.DefaultableCaplet;
 import info.quantlab.masterthesis.products.DefaultableCapletAnalyticApproximation;
 import info.quantlab.masterthesis.products.DefaultableZeroCouponBond;
@@ -76,8 +76,10 @@ public class ModelFromSpreadTest extends info.quantlab.debug.Time{
 		return Arrays.asList(new Object[][] {
 			// Put here an array of arrays where each array represents input for the constructor
 			{"Run 0: Baseline",						0.01, 	2, "SPREADS",	"LOGNORMAL",	"SPOT", 	new double[] { 0.04, 0.049, 0.062, 0.049, 0.044, 0.031 }, 0},
-			{"Run 1: Modelling defaultable LIBORs", 0.01, 	2, "LIBORS", 	"NORMAL",		"SPOT", 	new double[] { 0.04, 0.049, 0.062, 0.049, 0.044, 0.031 }, 1},
-			{"Run 2: Spread with normal model",		0.01, 	2, "SPREADS",	"NORMAL",		"SPOT", 	new double[] { 0.04, 0.049, 0.062, 0.049, 0.044, 0.031 }, 0},
+			
+			// For now the most stable version:
+			{"Run 1: Modelling defaultable LIBORs", 0.001, 	2, "LIBORS", 	"NORMAL",		"SPOT", 	new double[] { 0.04, 0.049, 0.062, 0.049, 0.044, 0.031 }, 1},
+			//{"Run 2: Spread with normal model",		0.001, 	2, "SPREADS",	"NORMAL",		"SPOT", 	new double[] { 0.04, 0.049, 0.062, 0.049, 0.044, 0.031 }, 0},
 			/*{"Run 2: Spread is 0", 					0.01, 	2, "SPREADS",	"LOGNORMAL", 	"SPOT", 	new double[] { 0.035, 0.043, 0.05, 0.041, 0.035, 0.02 },  2},
 			{"Run 3: Rougher time delta", 			0.1, 	2, "SPREADS",	"LOGNORMAL", 	"SPOT", 	new double[] { 0.04, 0.049, 0.062, 0.049, 0.044, 0.031 }, 3},
 			{"Run 4: Terminal Measure",			 	0.01, 	2, "SPREADS",	"LOGNORMAL", 	"TERMINAL",	new double[] { 0.04, 0.049, 0.062, 0.049, 0.044, 0.031 }, 4},
@@ -94,8 +96,8 @@ public class ModelFromSpreadTest extends info.quantlab.debug.Time{
 	
 	
 	// Simulation parameters:
-	private static final int numberOfPaths = 10000;
-	private static final int bmSeed = 4587;
+	private static final int numberOfPaths = 1000;
+	private static final int bmSeed = 7824;
 	
 	// Non Defaultable Model Parameters:
 	private static final int numberOfFactors = 5; // No Factor reduction
@@ -609,7 +611,7 @@ public class ModelFromSpreadTest extends info.quantlab.debug.Time{
 		MersenneTwister randomGenerator = new MersenneTwister(1021);
 		for (int row = 0; row < matrix.length; row++) {
 			for (int col = 0; col < matrix[row].length; col++) {
-				matrix[row][col] = randomGenerator.nextDoubleFast() * 0.2d - 0.1d;
+				matrix[row][col] = randomGenerator.nextDoubleFast() * 2.0d - 1.0d;
 			}
 		}
 		return matrix;
@@ -643,7 +645,7 @@ public class ModelFromSpreadTest extends info.quantlab.debug.Time{
 
 			@Override
 			public MonteCarloProcess getProcess() {
-				return Functional.getComponentReducedMCProcess(normalProcess, 0, getModel().getNumberOfComponents() - 1);
+				return FunctionsOnMCProcess.getComponentReducedMCProcess(normalProcess, 0, getModel().getNumberOfComponents() - 1);
 			}
 
 			@Override

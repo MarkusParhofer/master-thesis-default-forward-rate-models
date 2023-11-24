@@ -7,8 +7,8 @@ import java.util.Locale;
 import org.junit.Assert;
 import org.junit.jupiter.api.Test;
 
-import info.quantlab.masterthesis.multilibormodels.DefaultableLIBORCovarianceWithInitialUndefaultableCovariance;
-import info.quantlab.masterthesis.multilibormodels.DefaultableLIBORCovarianceWithGuaranteedPositiveSpread;
+import info.quantlab.masterthesis.defaultablecovariancemodels.DefaultableLIBORCovarianceWithGuaranteedPositiveSpread;
+import info.quantlab.masterthesis.defaultablecovariancemodels.DefaultableLIBORCovarianceWithInitialUndefaultableCovariance;
 import net.finmath.marketdata.model.curves.ForwardCurve;
 import net.finmath.marketdata.model.curves.ForwardCurveInterpolation;
 import net.finmath.montecarlo.interestrate.models.covariance.LIBORCorrelationModelExponentialDecay;

@@ -1,11 +1,10 @@
-package info.quantlab.masterthesis.multilibormodels;
+package info.quantlab.masterthesis.defaultablecovariancemodels;
 
 
 import net.finmath.functions.LinearAlgebra;
 import net.finmath.marketdata.model.curves.ForwardCurve;
 import net.finmath.marketdata.model.AnalyticModel;
 import net.finmath.montecarlo.interestrate.models.covariance.LIBORCovarianceModel;
-import net.finmath.stochastic.RandomVariable;
 import net.finmath.time.TimeDiscretization;
 
 /**

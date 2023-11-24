@@ -1,14 +1,11 @@
-package info.quantlab.masterthesis.vectormodel;
+package info.quantlab.masterthesis.legacy;
 
 import java.util.Map;
 
-import net.finmath.exception.CalculationException;
-import net.finmath.montecarlo.interestrate.LIBORMarketModel;
-import net.finmath.montecarlo.interestrate.models.covariance.AbstractLIBORCovarianceModelParametric;
+import net.finmath.exception.CalculationException;import net.finmath.montecarlo.interestrate.models.covariance.AbstractLIBORCovarianceModelParametric;
 import net.finmath.montecarlo.interestrate.models.covariance.LIBORCovarianceModel;
 import net.finmath.stochastic.RandomVariable;
 import net.finmath.stochastic.Scalar;
-import net.finmath.time.TimeDiscretization;
 
 /**
  * This class implements the factor Loadings of an undefaultable and a defaultable LIBOR model. 

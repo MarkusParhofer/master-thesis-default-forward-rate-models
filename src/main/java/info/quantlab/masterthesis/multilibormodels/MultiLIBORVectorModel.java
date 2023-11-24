@@ -11,7 +11,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.FutureTask;
 
-import info.quantlab.masterthesis.functional.Functional;
+import info.quantlab.masterthesis.defaultablecovariancemodels.DefaultableLIBORCovarianceModel;
+import info.quantlab.masterthesis.defaultablelibormodels.DefaultableLIBORMarketModel;
+import info.quantlab.masterthesis.functional.FunctionsOnMCProcess;
 import net.finmath.exception.CalculationException;
 import net.finmath.marketdata.model.AnalyticModel;
 import net.finmath.marketdata.model.curves.DiscountCurve;
@@ -414,15 +416,15 @@ public class MultiLIBORVectorModel implements LIBORMarketModel {
 	}
 	
 	private MonteCarloProcess getUndefaultableProcess(MonteCarloProcess process) {
-		return Functional.getComponentReducedMCProcess(process, 0, getNumberOfLiborPeriods());
+		return FunctionsOnMCProcess.getComponentReducedMCProcess(process, 0, getNumberOfLiborPeriods());
 	}
 	
 	private MonteCarloProcess getDefaultableProcess(MonteCarloProcess process, int liborModelIndex) {
-		MonteCarloProcess defaultableProcess = Functional.getComponentReducedMCProcess(
+		MonteCarloProcess defaultableProcess = FunctionsOnMCProcess.getComponentReducedMCProcess(
 				process, 
 				getFirstComponentOfDefaultableModel(liborModelIndex), 
 				getLastComponentOfDefaultableModel(liborModelIndex));
-		return Functional.getCombinedMCProcess(getUndefaultableProcess(process), defaultableProcess);
+		return FunctionsOnMCProcess.getCombinedMCProcess(getUndefaultableProcess(process), defaultableProcess);
 	}
 
 	@Override

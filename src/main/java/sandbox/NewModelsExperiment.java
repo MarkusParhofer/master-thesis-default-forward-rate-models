@@ -3,11 +3,11 @@ package sandbox;
 import java.util.HashMap;
 import java.util.Map;
 
-import info.quantlab.masterthesis.defaultablecovariancemodels.DefaultableLIBORCovarianceModel;
-import info.quantlab.masterthesis.defaultablecovariancemodels.SimpleDefaultableLIBORCovarianceWithGuaranteedPositiveSpread;
-import info.quantlab.masterthesis.multilibormodels.DefaultableLIBORCovarianceWithGuaranteedPositiveSpread;
-import info.quantlab.masterthesis.multilibormodels.DefaultableLIBORMarketModel;
-import info.quantlab.masterthesis.multilibormodels.DefaultableLIBORMarketModelFromCovarianceModel;
+import info.quantlab.masterthesis.defaultablecovariancemodels.DefaultableLIBORCovarianceWithGuaranteedPositiveSpread;
+import info.quantlab.masterthesis.defaultablelibormodels.DefaultableLIBORMarketModel;
+import info.quantlab.masterthesis.defaultablelibormodels.DefaultableLIBORMarketModelFromCovarianceModel;
+import info.quantlab.masterthesis.legacy.DefaultableLIBORCovarianceModel;
+import info.quantlab.masterthesis.legacy.SimpleDefaultableLIBORCovarianceWithGuaranteedPositiveSpread;
 import info.quantlab.masterthesis.products.DefaultableCap;
 import info.quantlab.masterthesis.products.DefaultableCaplet;
 import info.quantlab.masterthesis.products.DefaultableCouponBond;

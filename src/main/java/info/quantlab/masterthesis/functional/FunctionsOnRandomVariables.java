@@ -1,5 +1,6 @@
-package info.quantlab.debug;
+package info.quantlab.masterthesis.functional;
 
+import info.quantlab.debug.Debug;
 import net.finmath.stochastic.RandomVariable;
 
 public class FunctionsOnRandomVariables {

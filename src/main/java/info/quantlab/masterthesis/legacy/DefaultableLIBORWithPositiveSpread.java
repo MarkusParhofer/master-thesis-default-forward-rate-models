@@ -1,32 +1,20 @@
 /**
  * 
  */
-package info.quantlab.masterthesis.defaultablelibormodels;
+package info.quantlab.masterthesis.legacy;
 
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.Map;
 
-import javax.management.RuntimeErrorException;
-
-import info.quantlab.masterthesis.defaultablecovariancemodels.AbstractDefaultableLIBORCovarianceModel;
-import info.quantlab.masterthesis.defaultablecovariancemodels.DefaultableLIBORCovarianceModel;
-import info.quantlab.masterthesis.defaultableliborsimulation.EulerSchemeFromDefaultableLIBORModel;
-import info.quantlab.masterthesis.defaultableliborsimulation.MonteCarloProcessWithDependency;
 import net.finmath.exception.CalculationException;
 import net.finmath.marketdata.model.AnalyticModel;
 import net.finmath.marketdata.model.curves.DiscountCurve;
 import net.finmath.marketdata.model.curves.ForwardCurve;
 import net.finmath.montecarlo.RandomVariableFactory;
 import net.finmath.montecarlo.RandomVariableFromArrayFactory;
-import net.finmath.montecarlo.RandomVariableFromDoubleArray;
 import net.finmath.montecarlo.interestrate.LIBORMarketModel;
 import net.finmath.montecarlo.interestrate.LIBORModel;
-import net.finmath.montecarlo.interestrate.models.LIBORMarketModelFromCovarianceModel.Measure;
-import net.finmath.montecarlo.interestrate.models.LIBORMarketModelFromCovarianceModel.SimulationTimeInterpolationMethod;
-import net.finmath.montecarlo.interestrate.models.LIBORMarketModelFromCovarianceModel.StateSpace;
-import net.finmath.montecarlo.interestrate.models.covariance.LIBORCovarianceModel;
-import net.finmath.montecarlo.interestrate.models.covariance.LIBORCovarianceModelCalibrateable;
 import net.finmath.montecarlo.model.AbstractProcessModel;
 import net.finmath.montecarlo.process.MonteCarloProcess;
 import net.finmath.stochastic.RandomVariable;

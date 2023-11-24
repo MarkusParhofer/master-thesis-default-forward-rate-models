@@ -1,4 +1,4 @@
-package info.quantlab.masterthesis.multilibormodels;
+package info.quantlab.masterthesis.defaultablelibormodels;
 
 import java.time.LocalDateTime;
 import java.util.Arrays;
@@ -7,7 +7,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.Vector;
 
-import info.quantlab.masterthesis.functional.Functional;
+import info.quantlab.masterthesis.defaultablecovariancemodels.DefaultableLIBORCovarianceModel;
+import info.quantlab.masterthesis.functional.FunctionsOnMCProcess;
 import net.finmath.exception.CalculationException;
 import net.finmath.marketdata.model.AnalyticModel;
 import net.finmath.marketdata.model.curves.DiscountCurve;
@@ -773,7 +774,7 @@ public class DefaultableLIBORMarketModelFromCovarianceModel extends AbstractProc
 	private MonteCarloProcess getUndefaultableProcess(MonteCarloProcess fullProcess) {
 		if(fullProcess == null)
 			return null;
-		return Functional.getComponentReducedMCProcess(fullProcess, 0, getNumberOfLIBORPeriods() - 1);
+		return FunctionsOnMCProcess.getComponentReducedMCProcess(fullProcess, 0, getNumberOfLIBORPeriods() - 1);
 		
 	}
 	

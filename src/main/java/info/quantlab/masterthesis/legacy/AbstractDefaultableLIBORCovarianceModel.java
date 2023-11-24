@@ -1,7 +1,7 @@
 /**
  * 
  */
-package info.quantlab.masterthesis.defaultablecovariancemodels;
+package info.quantlab.masterthesis.legacy;
 
 import net.finmath.montecarlo.interestrate.LIBORMarketModel;
 import net.finmath.stochastic.RandomVariable;

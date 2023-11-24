@@ -5,6 +5,7 @@ import java.util.Arrays;
 import java.util.Map;
 import java.util.stream.DoubleStream;
 
+import info.quantlab.masterthesis.defaultablecovariancemodels.DefaultableLIBORCovarianceModel;
 import net.finmath.exception.CalculationException;
 import net.finmath.montecarlo.interestrate.models.covariance.AbstractLIBORCovarianceModelParametric;
 import net.finmath.montecarlo.interestrate.models.covariance.LIBORCovarianceModel;

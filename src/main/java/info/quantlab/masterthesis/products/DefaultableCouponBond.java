@@ -2,7 +2,7 @@ package info.quantlab.masterthesis.products;
 
 import java.util.Arrays;
 
-import info.quantlab.masterthesis.multilibormodels.DefaultableLIBORMarketModel;
+import info.quantlab.masterthesis.defaultablelibormodels.DefaultableLIBORMarketModel;
 import net.finmath.exception.CalculationException;
 import net.finmath.montecarlo.interestrate.TermStructureMonteCarloSimulationModel;
 import net.finmath.stochastic.RandomVariable;

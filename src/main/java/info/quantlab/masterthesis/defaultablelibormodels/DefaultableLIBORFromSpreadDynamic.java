@@ -1,4 +1,4 @@
-package info.quantlab.masterthesis.multilibormodels;
+package info.quantlab.masterthesis.defaultablelibormodels;
 
 
 import java.time.LocalDateTime;
@@ -8,7 +8,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.Vector;
 
-import info.quantlab.masterthesis.functional.Functional;
+import info.quantlab.masterthesis.defaultablecovariancemodels.DefaultableLIBORCovarianceModel;
+import info.quantlab.masterthesis.functional.FunctionsOnMCProcess;
 import net.finmath.exception.CalculationException;
 import net.finmath.marketdata.model.AnalyticModel;
 import net.finmath.marketdata.model.curves.DiscountCurve;
@@ -40,21 +41,46 @@ import net.finmath.time.TimeDiscretizationFromArray;
  */
 public class DefaultableLIBORFromSpreadDynamic  extends AbstractProcessModel implements DefaultableLIBORMarketModel, ProcessModel {
 
-	// TODO: Always adjust non-defaultable drift (add 0.5*sigma^2 and multiply L^d)if stateSpace of non-defaultable LIBORMarketModel is lognormal
+	// TODO: Always adjust non-defaultable drift (add 0.5*sigma^2 and multiply L^d) if stateSpace of non-defaultable LIBORMarketModel is lognormal
 	// TODO: Always adjust non-defaultable factor loading (multiply L) if non defaultable LIBORMarketModel is lognormal
 	
 	public enum Measure					{ SPOT, TERMINAL }
-	public enum StateSpace				{ NORMAL, @Deprecated LOGNORMAL } // No support for the LOGNORMAL version yet (drift must be adjusted)
 	public enum InterpolationMethod		{ LINEAR, LOG_LINEAR_UNCORRECTED, LOG_LINEAR_CORRECTED }
 	public enum HandleSimulationTime 	{ ROUND_DOWN, ROUND_NEAREST }
-	public enum SimulationModel			{ SPREADS, LIBORS }
+	public enum StateSpace				{ 
+		/**
+		 * For now the only stable StateSpace is NORMAL, because if we model the LIBORS we need to adjust the non-defaultable Factor Loadings 
+		 * accordingly (but we can't actually tell if the stateSpace of the non-defaultable model is lognormal) and if we model the spreads we need 
+		 * to adjust both the drift and the factor loadings.
+		 */
+		NORMAL, 
+		/**
+		 * For now the only stable StateSpace is NORMAL, because if we model the LIBORS we need to adjust the non-defaultable Factor Loadings 
+		 * accordingly (but we can't actually tell if the stateSpace of the non-defaultable model is lognormal) and if we model the spreads we need 
+		 * to adjust both the drift and the factor loadings.
+		 */
+		@Deprecated LOGNORMAL } // No support for the LOGNORMAL version yet (drift must be adjusted)
+	public enum SimulationModel			{ 
+		/**
+		 * For now the only stable simulation model is LIBORS, or modelling spread under NORMAL statespace, because deviding by the spread 
+		 * (e.g. in getDriftOfSpread(...) we use the formula drift=(drift_D - drift_ND)/Spread) poses a stability problem, because the spread 
+		 * might be very small
+		 */
+		SPREADS,
+		/**
+		 * For now the only stable simulation model is LIBORS, or modelling spread under NORMAL statespace, because deviding by the spread 
+		 * (e.g. in getDriftOfSpread(...) we use the formula drift=(drift_D - drift_ND)/Spread) poses a stability problem, because the spread 
+		 * might be very small
+		 */
+		LIBORS }
 	
 	// Flags
 	private Measure	measure = Measure.SPOT;
 	private StateSpace stateSpace = StateSpace.NORMAL;
 	private HandleSimulationTime handleSimulationTime = HandleSimulationTime.ROUND_NEAREST;
 	private InterpolationMethod	interpolationMethod	= InterpolationMethod.LOG_LINEAR_UNCORRECTED;
-	private SimulationModel simulationModel = SimulationModel.SPREADS;
+	
+	private SimulationModel simulationModel = SimulationModel.LIBORS;
 	private StateSpace stateSpaceOfSpread = StateSpace.NORMAL;
 	private boolean nondefaultableModelIsLogNormal = false;
 	
@@ -423,12 +449,12 @@ public class DefaultableLIBORFromSpreadDynamic  extends AbstractProcessModel imp
 			if(nondefaultableModelIsLogNormal) {
 				// Add 0.5*sigma^2 to undefaultable drift
 				RandomVariable[] nonDefaultableRealizations = Arrays.copyOf(realizationAtTimeIndex, getUndefaultableLIBORModel().getNumberOfLibors());
-				nonDefaultableDrifts[libor] = nonDefaultableDrifts[libor].add(getUndefaultableLIBORModel().getCovarianceModel().getCovariance(timeIndex, libor, libor, nonDefaultableRealizations));
+				nonDefaultableDrifts[libor] = nonDefaultableDrifts[libor].add(getUndefaultableLIBORModel().getCovarianceModel().getCovariance(timeIndex, libor, libor, nonDefaultableRealizations).mult(0.5));
 				// Multiply L to undefaultable drift
 				nonDefaultableDrifts[libor] = nonDefaultableDrifts[libor].mult(realizationAtTimeIndex[libor]);
 			}
 			if(stateSpace == StateSpace.LOGNORMAL) {
-				// Multiply L^d to drift (getDefaultableDriftInternally(...) gets purely mu
+				// Multiply L^d to drift (getDefaultableDriftInternally(...) gets purely mu)
 				drift[libor] = drift[libor].mult(realizationAllLIBORS[getDefaultableComponentIndex(libor)]);
 			}
 			drift[libor] = drift[libor].sub(nonDefaultableDrifts[libor]);
@@ -1102,7 +1128,7 @@ public class DefaultableLIBORFromSpreadDynamic  extends AbstractProcessModel imp
 	private MonteCarloProcess getUndefaultableProcess(MonteCarloProcess fullProcess) {
 		if(fullProcess == null)
 			return null;
-		return Functional.getComponentReducedMCProcess(fullProcess, 0, getNumberOfLIBORPeriods() - 1);
+		return FunctionsOnMCProcess.getComponentReducedMCProcess(fullProcess, 0, getNumberOfLIBORPeriods() - 1);
 		
 	}
 	
