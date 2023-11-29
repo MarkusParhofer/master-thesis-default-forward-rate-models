@@ -909,9 +909,9 @@ public class DefaultableLIBORFromSpreadDynamic  extends AbstractProcessModel imp
 		RandomVariable numeraire = getDefaultableNumeraireUnadjusted(process, time);
 		
 		// Adjust:
-		final RandomVariable zeroBondAtTimeZero =  getNumeraireDefaultableZeroBondAsOfTimeZero(process, time);
-		final double expectedZeroBond = numeraire.invert().mult(getDefaultableNumeraireUnadjusted(process, 0.0)).getAverage();
-		numeraire = numeraire.mult(expectedZeroBond).div(zeroBondAtTimeZero);
+		// final RandomVariable zeroBondAtTimeZero =  getNumeraireDefaultableZeroBondAsOfTimeZero(process, time);
+		// final double expectedZeroBond = numeraire.invert().mult(getDefaultableNumeraireUnadjusted(process, 0.0)).getAverage();
+		// numeraire = numeraire.mult(expectedZeroBond).div(zeroBondAtTimeZero);
 		
 		return numeraire;
 	}

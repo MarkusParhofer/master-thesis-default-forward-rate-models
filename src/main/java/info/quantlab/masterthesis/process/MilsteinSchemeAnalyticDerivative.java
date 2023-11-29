@@ -6,7 +6,6 @@ import net.finmath.montecarlo.IndependentIncrements;
 import net.finmath.montecarlo.model.ProcessModel;
 import net.finmath.montecarlo.process.MonteCarloProcess;
 import net.finmath.stochastic.RandomVariable;
-import net.finmath.time.TimeDiscretization;
 import net.finmath.util.TriFunction;
 
 public class MilsteinSchemeAnalyticDerivative extends AbstractMilsteinScheme implements MonteCarloProcess {
@@ -26,8 +25,8 @@ public class MilsteinSchemeAnalyticDerivative extends AbstractMilsteinScheme imp
 	 * The function must be of the form: 
 	 * <b><code>apply(int componentIndex, double time, RandomVariable[] realizations)</code></b>
 	 */
-	public MilsteinSchemeAnalyticDerivative(IndependentIncrements stochasticDriver, TimeDiscretization timeDiscretization, ProcessModel model, TriFunction<Integer, Double, RandomVariable[], RandomVariable[]> analyticDerivative) {
-		super(stochasticDriver, timeDiscretization, model);
+	public MilsteinSchemeAnalyticDerivative(ProcessModel model, IndependentIncrements stochasticDriver, TriFunction<Integer, Double, RandomVariable[], RandomVariable[]> analyticDerivative) {
+		super(model, stochasticDriver);
 		m_AnalyticDerivative = analyticDerivative;
 	}
 

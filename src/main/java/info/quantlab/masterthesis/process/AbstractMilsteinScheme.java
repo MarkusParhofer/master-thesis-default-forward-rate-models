@@ -14,7 +14,6 @@ import net.finmath.montecarlo.model.ProcessModel;
 import net.finmath.montecarlo.process.MonteCarloProcess;
 import net.finmath.montecarlo.process.MonteCarloProcessFromProcessModel;
 import net.finmath.stochastic.RandomVariable;
-import net.finmath.time.TimeDiscretization;
 
 public abstract class AbstractMilsteinScheme  extends MonteCarloProcessFromProcessModel implements MonteCarloProcess {
 
@@ -26,8 +25,8 @@ public abstract class AbstractMilsteinScheme  extends MonteCarloProcessFromProce
 	private boolean m_UseMultiThreadding = true;
 	
 	
-	public AbstractMilsteinScheme(IndependentIncrements stochasticDriver, TimeDiscretization timeDiscretization, ProcessModel model) {
-		super(timeDiscretization, model);
+	public AbstractMilsteinScheme(ProcessModel model, IndependentIncrements stochasticDriver) {
+		super(stochasticDriver.getTimeDiscretization(), model);
 		m_StochasticDriver = stochasticDriver;
 		m_Process = null;
 		m_ProcessWeights = null;
@@ -158,8 +157,8 @@ public abstract class AbstractMilsteinScheme  extends MonteCarloProcessFromProce
 						// Add Milstein adjustment:
 						RandomVariable[] milsteinAdjustment = getDifferentialOfFactorLoading(componentIndex, timeIndex - 1, factorLoadings);
 						for(int k=0; k < getNumberOfFactors(); k++) {
-							final RandomVariable milsteinDelta = brownianIncrement[k].squared().sub(deltaT);
-							milsteinAdjustment[k] = milsteinAdjustment[k].mult(factorLoadings[k]).mult(0.5).mult(milsteinDelta);
+							final RandomVariable milsteinIncrement = brownianIncrement[k].squared().sub(deltaT);
+							milsteinAdjustment[k] = milsteinAdjustment[k].mult(factorLoadings[k]).mult(0.5d).mult(milsteinIncrement);
 							currentState[componentIndex] = currentState[componentIndex].add(milsteinAdjustment[k]);
 						}
 						

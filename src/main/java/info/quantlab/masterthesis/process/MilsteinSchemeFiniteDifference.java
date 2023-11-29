@@ -7,7 +7,6 @@ import net.finmath.montecarlo.IndependentIncrements;
 import net.finmath.montecarlo.model.ProcessModel;
 import net.finmath.montecarlo.process.MonteCarloProcess;
 import net.finmath.stochastic.RandomVariable;
-import net.finmath.time.TimeDiscretization;
 
 public class MilsteinSchemeFiniteDifference extends AbstractMilsteinScheme implements MonteCarloProcess {
 
@@ -21,8 +20,8 @@ public class MilsteinSchemeFiniteDifference extends AbstractMilsteinScheme imple
 	private double m_DeltaXForFiniteDifference;
 	private FiniteDifferenceMethod m_Method;	
 	
-	public MilsteinSchemeFiniteDifference(IndependentIncrements stochasticDriver, TimeDiscretization timeDiscretization, ProcessModel model, FiniteDifferenceMethod finiteDifferenceMethod, double hForfiniteDifference) {
-		super(stochasticDriver, timeDiscretization, model);
+	public MilsteinSchemeFiniteDifference(ProcessModel model, IndependentIncrements stochasticDriver, FiniteDifferenceMethod finiteDifferenceMethod, double hForfiniteDifference) {
+		super(model, stochasticDriver);
 		m_Method = finiteDifferenceMethod;
 		m_DeltaXForFiniteDifference = hForfiniteDifference;
 	}
