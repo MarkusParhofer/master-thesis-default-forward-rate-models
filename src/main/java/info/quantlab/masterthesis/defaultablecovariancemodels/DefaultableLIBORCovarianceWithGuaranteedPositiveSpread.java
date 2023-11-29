@@ -7,7 +7,6 @@ import net.finmath.exception.CalculationException;
 import net.finmath.montecarlo.interestrate.models.covariance.LIBORCovarianceModel;
 import net.finmath.stochastic.RandomVariable;
 import net.finmath.stochastic.Scalar;
-import net.finmath.util.TriFunction;
 
 /**
  * This class implements the factor Loadings of an undefaultable and a defaultable LIBOR model. 
