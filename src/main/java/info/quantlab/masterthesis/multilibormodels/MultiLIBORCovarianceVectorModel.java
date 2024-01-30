@@ -21,67 +21,67 @@ public class MultiLIBORCovarianceVectorModel extends AbstractLIBORCovarianceMode
 
 	private final DefaultableLIBORCovarianceModel[] _defaultableCovarianceModels;
 	
-	private final LIBORCovarianceModel _undefaultableCovarianceModel;
+	private final LIBORCovarianceModel _nonDefaultableCovarianceModel;
 	
-	private final boolean _calibrateUndefaultableModel;
+	private final boolean _calibrateNonDefaultableModel;
 	
 	/**
 	 * Constructs a LIBORCovarianceModel with a single defaultable Covariance model.
 	 * @param defaultableCovarianceModel The (single) defaultable Covariance model.
-	 * @param undefaultableCovarianceModel The covariance model of the underlying undefaultable LIBOR Model.
+	 * @param nonDefaultableCovarianceModel The covariance model of the underlying non-defaultable LIBOR Model.
 	 */
-	public MultiLIBORCovarianceVectorModel(DefaultableLIBORCovarianceModel defaultableCovarianceModel, LIBORCovarianceModel undefaultableCovarianceModel) {
-		this(new DefaultableLIBORCovarianceModel[] {defaultableCovarianceModel}, undefaultableCovarianceModel);
+	public MultiLIBORCovarianceVectorModel(DefaultableLIBORCovarianceModel defaultableCovarianceModel, LIBORCovarianceModel nonDefaultableCovarianceModel) {
+		this(new DefaultableLIBORCovarianceModel[] {defaultableCovarianceModel}, nonDefaultableCovarianceModel);
 	}
 	
 	/**
 	 * Constructs a LIBORCovarianceModel with a single defaultable Covariance model.
 	 * @param defaultableCovarianceModel The (single) defaultable Covariance model.
-	 * @param undefaultableCovarianceModel The covariance model of the underlying undefaultable LIBOR Model.
-	 * @param calibrateUndefaultableModel flag determining if the undefaultable model is also to be calibrated if possible.
+	 * @param nonDefaultableCovarianceModel The covariance model of the underlying non-defaultable LIBOR Model.
+	 * @param calibrateNonDefaultableModel flag determining if the non-defaultable model is also to be calibrated if possible.
 	 */
-	public MultiLIBORCovarianceVectorModel(DefaultableLIBORCovarianceModel defaultableCovarianceModel, LIBORCovarianceModel undefaultableCovarianceModel, boolean calibrateUndefaultableModel) {
-		this(new DefaultableLIBORCovarianceModel[] {defaultableCovarianceModel}, undefaultableCovarianceModel, calibrateUndefaultableModel);
+	public MultiLIBORCovarianceVectorModel(DefaultableLIBORCovarianceModel defaultableCovarianceModel, LIBORCovarianceModel nonDefaultableCovarianceModel, boolean calibrateNonDefaultableModel) {
+		this(new DefaultableLIBORCovarianceModel[] {defaultableCovarianceModel}, nonDefaultableCovarianceModel, calibrateNonDefaultableModel);
 	}
 	
 	/**
 	 * Constructs a LIBORCovarianceModel with multiple defaultable Covariance models
 	 * @param defaultableCovarianceModel The defaultable Covariance models as array.
-	 * @param undefaultableCovarianceModel The covariance model of the underlying undefaultable LIBOR Model.
+	 * @param nonDefaultableCovarianceModel The covariance model of the underlying non-defaultable LIBOR Model.
 	 */
-	public MultiLIBORCovarianceVectorModel(DefaultableLIBORCovarianceModel[] defaultableCovarianceModel, LIBORCovarianceModel undefaultableCovarianceModel) {
-		this(defaultableCovarianceModel, undefaultableCovarianceModel, true);
+	public MultiLIBORCovarianceVectorModel(DefaultableLIBORCovarianceModel[] defaultableCovarianceModel, LIBORCovarianceModel nonDefaultableCovarianceModel) {
+		this(defaultableCovarianceModel, nonDefaultableCovarianceModel, true);
 	}
 	
 	/**
 	 * Constructs a LIBORCovarianceModel with multiple defaultable Covariance models
 	 * @param defaultableCovarianceModel The defaultable Covariance models as array.
-	 * @param undefaultableCovarianceModel The covariance model of the underlying undefaultable LIBOR Model.
-	 * @param calibrateUndefaultableModel flag determining if the undefaultable model is also to be calibrated if possible.
+	 * @param nonDefaultableCovarianceModel The covariance model of the underlying non-defaultable LIBOR Model.
+	 * @param calibrateNonDefaultableModel flag determining if the non-defaultable model is also to be calibrated if possible.
 	 */
-	public MultiLIBORCovarianceVectorModel(DefaultableLIBORCovarianceModel[] defaultableCovarianceModel, LIBORCovarianceModel undefaultableCovarianceModel, boolean calibrateUndefaultableModel) {
-		super(undefaultableCovarianceModel.getTimeDiscretization(), 
-				undefaultableCovarianceModel.getLiborPeriodDiscretization(), 
-				undefaultableCovarianceModel.getNumberOfFactors() + 
-				Arrays.stream(defaultableCovarianceModel).mapToInt(model -> model.getNumberOfFactors() - undefaultableCovarianceModel.getNumberOfFactors()).sum());
-		
-		_undefaultableCovarianceModel = undefaultableCovarianceModel;
+	public MultiLIBORCovarianceVectorModel(DefaultableLIBORCovarianceModel[] defaultableCovarianceModel, LIBORCovarianceModel nonDefaultableCovarianceModel, boolean calibrateNonDefaultableModel) {
+		super(nonDefaultableCovarianceModel.getTimeDiscretization(), 
+				nonDefaultableCovarianceModel.getLiborPeriodDiscretization(), 
+				nonDefaultableCovarianceModel.getNumberOfFactors() + 
+				Arrays.stream(defaultableCovarianceModel).mapToInt(model -> model.getNumberOfFactors() - nonDefaultableCovarianceModel.getNumberOfFactors()).sum());
+
+		_nonDefaultableCovarianceModel = nonDefaultableCovarianceModel;
 		_defaultableCovarianceModels = defaultableCovarianceModel;
-		_calibrateUndefaultableModel = calibrateUndefaultableModel;
+		_calibrateNonDefaultableModel = calibrateNonDefaultableModel;
 		
 		for(int i = 0; i < _defaultableCovarianceModels.length; i++) {
-			if(!_undefaultableCovarianceModel.equals(_defaultableCovarianceModels[i].getNonDefaultableCovarianceModel())) {
-				throw new InvalidParameterException("Undefaultable model is not equal to that of at least one defaultable model. Problem discovered at index " + i);
+			if(!_nonDefaultableCovarianceModel.equals(_defaultableCovarianceModels[i].getNonDefaultableCovarianceModel())) {
+				throw new InvalidParameterException("NonDefaultable model is not equal to that of at least one defaultable model. Problem discovered at index " + i);
 			}
 		}
 	}
 
 	/**
-	 * Checks if the undefaultable Model is calibrateable and if it should be calibrated.
-	 * @return boolean value determining if the undefaultable model can and should be calibrated.	
+	 * Checks if the nonDefaultable Model is calibrateable and if it should be calibrated.
+	 * @return boolean value determining if the non-defaultable model can and should be calibrated.
 	 */
-	public boolean isUndefaultableModelCalibrateable() {
-		return _calibrateUndefaultableModel && (_undefaultableCovarianceModel instanceof AbstractLIBORCovarianceModelParametric);
+	public boolean isNonDefaultableModelCalibrateable() {
+		return _calibrateNonDefaultableModel && (_nonDefaultableCovarianceModel instanceof AbstractLIBORCovarianceModelParametric);
 	}
 	
 	public DefaultableLIBORCovarianceModel[] getArrayOfDefaultableCovarianceModels() {
@@ -92,8 +92,8 @@ public class MultiLIBORCovarianceVectorModel extends AbstractLIBORCovarianceMode
 		return _defaultableCovarianceModels[index];
 	}
 	
-	public LIBORCovarianceModel getUndefaultableLiborCovarianceModel() {
-		return _undefaultableCovarianceModel;
+	public LIBORCovarianceModel getNonDefaultableLiborCovarianceModel() {
+		return _nonDefaultableCovarianceModel;
 	}
 	
  	public int getNumberOfDefaultableModels() {
@@ -109,8 +109,8 @@ public class MultiLIBORCovarianceVectorModel extends AbstractLIBORCovarianceMode
 		
 		double[] allParams = null;
 		
-		if(isUndefaultableModelCalibrateable()) {
-			allParams = ((AbstractLIBORCovarianceModelParametric)_undefaultableCovarianceModel).getParameterAsDouble();
+		if(isNonDefaultableModelCalibrateable()) {
+			allParams = ((AbstractLIBORCovarianceModelParametric)_nonDefaultableCovarianceModel).getParameterAsDouble();
 		}
 		
 		DoubleStream parameterStream = Arrays.stream(allParams);
@@ -124,12 +124,12 @@ public class MultiLIBORCovarianceVectorModel extends AbstractLIBORCovarianceMode
 
 	@Override
 	public RandomVariable[] getFactorLoading(int timeIndex, int component, RandomVariable[] realizationAtTimeIndex) {
-		final RandomVariable[] realizationOfUndefaultableModel = Arrays.copyOf(realizationAtTimeIndex, getNumberOfLIBORPeriods());
+		final RandomVariable[] realizationOfNonDefaultableModel = Arrays.copyOf(realizationAtTimeIndex, getNumberOfLIBORPeriods());
 		
 		if(component < getNumberOfLIBORPeriods()) {
-			final RandomVariable[] factorLoadingLowFactors = getUndefaultableLiborCovarianceModel().getFactorLoading(timeIndex, component, realizationOfUndefaultableModel);
+			final RandomVariable[] factorLoadingLowFactors = getNonDefaultableLiborCovarianceModel().getFactorLoading(timeIndex, component, realizationOfNonDefaultableModel);
 			final RandomVariable[] factorLoading = Arrays.copyOf(factorLoadingLowFactors, getNumberOfFactors());
-			Arrays.fill(factorLoading, getUndefaultableLiborCovarianceModel().getNumberOfFactors(), getNumberOfFactors(), Scalar.of(0.0));
+			Arrays.fill(factorLoading, getNonDefaultableLiborCovarianceModel().getNumberOfFactors(), getNumberOfFactors(), Scalar.of(0.0));
 			return factorLoading;
 		}
 		
@@ -143,13 +143,13 @@ public class MultiLIBORCovarianceVectorModel extends AbstractLIBORCovarianceMode
 		final RandomVariable[] realizationOfDefaultableModel = Arrays.copyOfRange(realizationAtTimeIndex, componentStartIndex, componentEndIndex);
 		
 		final RandomVariable[] factorLoadingLowFactors = getDefaultableCovarianceModel(defaultableModelIndex).
-				getFactorLoading(timeIndexModified, modelComponent, realizationOfDefaultableModel, realizationOfUndefaultableModel);
+				getFactorLoading(timeIndexModified, modelComponent, realizationOfDefaultableModel, realizationOfNonDefaultableModel);
 		final RandomVariable zero = Scalar.of(0.0);
 		final RandomVariable[] factorLoading = Arrays.copyOf(factorLoadingLowFactors, getNumberOfFactors());
 		int firstIndexZero = getDefaultableCovarianceModel(defaultableModelIndex).getNumberOfFactors();
 		
 		if(defaultableModelIndex != 0) {
-			final int undefFactors = getUndefaultableLiborCovarianceModel().getNumberOfFactors();
+			final int undefFactors = getNonDefaultableLiborCovarianceModel().getNumberOfFactors();
 			int beginningOfExtraFactors = undefFactors;
 			for(int i = 0; i < defaultableModelIndex; i++) {
 				beginningOfExtraFactors += getDefaultableCovarianceModel(i).getNumberOfFactors() - undefFactors;
@@ -182,15 +182,15 @@ public class MultiLIBORCovarianceVectorModel extends AbstractLIBORCovarianceMode
 			lastIndexExclusive = firstIndex;
 		}
 		
-		LIBORCovarianceModel newUndefaultableCovarianceModel = _undefaultableCovarianceModel;
-		if(isUndefaultableModelCalibrateable()) {
-			newUndefaultableCovarianceModel = ((AbstractLIBORCovarianceModelParametric)_undefaultableCovarianceModel).getCloneWithModifiedParameters(Arrays.copyOfRange(parameters, 0, lastIndexExclusive));
+		LIBORCovarianceModel newNonDefaultableCovarianceModel = _nonDefaultableCovarianceModel;
+		if(isNonDefaultableModelCalibrateable()) {
+			newNonDefaultableCovarianceModel = ((AbstractLIBORCovarianceModelParametric)_nonDefaultableCovarianceModel).getCloneWithModifiedParameters(Arrays.copyOfRange(parameters, 0, lastIndexExclusive));
 			for(int modelIndex = 0; modelIndex < getNumberOfDefaultableModels(); modelIndex++) {
-				newCovarianceModels[modelIndex] = newCovarianceModels[modelIndex].getCloneWithModifiedNonDefaultableCovariance(newUndefaultableCovarianceModel);
+				newCovarianceModels[modelIndex] = newCovarianceModels[modelIndex].getCloneWithModifiedNonDefaultableCovariance(newNonDefaultableCovarianceModel);
 			}
 		}
 
-		return new MultiLIBORCovarianceVectorModel(newCovarianceModels, newUndefaultableCovarianceModel, isUndefaultableModelCalibrateable());
+		return new MultiLIBORCovarianceVectorModel(newCovarianceModels, newNonDefaultableCovarianceModel, isNonDefaultableModelCalibrateable());
 	}
 
 	@Override
@@ -201,7 +201,7 @@ public class MultiLIBORCovarianceVectorModel extends AbstractLIBORCovarianceMode
 
 	@Override
 	public MultiLIBORCovarianceVectorModel clone() {
-		return new MultiLIBORCovarianceVectorModel(_defaultableCovarianceModels, _undefaultableCovarianceModel, isUndefaultableModelCalibrateable());
+		return new MultiLIBORCovarianceVectorModel(_defaultableCovarianceModels, _nonDefaultableCovarianceModel, isNonDefaultableModelCalibrateable());
 	}
 
 

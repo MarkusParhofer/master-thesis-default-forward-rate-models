@@ -1,4 +1,4 @@
-package info.quantlab.masterthesis.defaultablemodels.testing;
+package info.quantlab.masterthesis.factory;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -32,6 +32,7 @@ import net.finmath.montecarlo.interestrate.models.covariance.LIBORVolatilityMode
 import net.finmath.montecarlo.model.ProcessModel;
 import net.finmath.montecarlo.process.EulerSchemeFromProcessModel;
 import net.finmath.montecarlo.process.MonteCarloProcess;
+import net.finmath.opencl.montecarlo.RandomVariableOpenCLFactory;
 import net.finmath.randomnumbers.MersenneTwister;
 import net.finmath.stochastic.RandomVariable;
 import net.finmath.time.TimeDiscretization;
@@ -46,7 +47,7 @@ import net.finmath.util.TriFunction;
  * @version 0.9
  */
 public class DefaultableLIBORModelFactory {
-	
+
 	/**
 	 * Model implementation used for the non defaultable covariance structure.
 	 * <br>
@@ -174,7 +175,7 @@ public class DefaultableLIBORModelFactory {
 	 * <li><b>stateSpace</b> (<code>String</code>): the statespace of the defaultable and non defaultable model.</li>
 	 * <li><b>measure</b> (<code>String</code>): the measure of the defaultable and non defaultable model.</li>
 	 * 
-	 * <li><b>covarianceModel</b> (<code>String</code> or {@link #CovarianceModel}): covariance model implementation used for the non defaultable model.</li>
+	 * <li><b>covarianceModel</b> (<code>String</code> or {@link DefaultableLIBORModelFactory.CovarianceModel}): covariance model implementation used for the non defaultable model.</li>
 	 * <li><b>numberOfFactors</b> (<code>int</code>): number of factors for the non defaultable model.</li>
 	 * <li><b>volatilityParams</b> (<code>double[]</code>): parameters for the volatility structure of the non defaultable model.</li>
 	 * <li><b>correlationDecayParam</b> (<code>double</code>): correlation decay parameter for the non defaultable correlation model.</li>
@@ -192,12 +193,12 @@ public class DefaultableLIBORModelFactory {
 	 * <li><b>simulationTimeDelta</b> (<code>double</code>): the discretization time step that is used for simulation and the construction of the covariance structures.</li>
 	 * <li><b>numberOfPaths</b> (<code>int</code>): number of paths used for for the simulation.</li>
 	 * <li><b>brownianMotionSeed</b> (<code>int</code>): seed used for the construction of the BrownianMotionFromMersenneRandomNumbers.</li>
-	 * <li><b>numericalScheme</b> (<code>String</code> or {@link #Scheme}): scheme used to simulate the model.</li>
+	 * <li><b>numericalScheme</b> (<code>String</code> or {@link DefaultableLIBORModelFactory.Scheme}): scheme used to simulate the model.</li>
 	 * <li><b>finiteDifferenceDelta</b> (<code>double</code>): the delta used to estimate the differential of the factor loadings in a finite difference Milstein scheme.</li>
 	 * <li><b>analyticDifferentialFactorLoadings</b> (<code>TriFunction{@literal <}Integer, Double, RandomVariable[], RandomVariable[]{@literal >}</code>): function used for the differential of the factor loadings. Input values are (componentIndex, time, LIBORrealizations).</li>
 	 * </ul>
 	 * @apiNote All properties are unchecked. If two properties are incompatible this method will not throw an exception.
-	 * @param properties 
+	 * @param properties Map with specified properties. see above for options
 	 */
 	@SuppressWarnings("unchecked")
 	public void setProperties(Map<String, Object> properties) {
@@ -273,7 +274,7 @@ public class DefaultableLIBORModelFactory {
 				case "numberofpaths":
 					numberOfPaths = (int) properties.get(key);
 					break;
-				case "brownianMotionSeed":
+				case "brownianmotionseed":
 					brownianMotionSeed = (int) properties.get(key);
 					break;
 				case "numericalscheme":
@@ -393,7 +394,7 @@ public class DefaultableLIBORModelFactory {
 	public MonteCarloProcess createNumericalScheme(ProcessModel model) throws NullPointerException {
 		TimeDiscretization timeDiscretization;
 		{
-			Object objectModel = (Object)model;
+			var objectModel = (Object)model;
 			if(objectModel instanceof LIBORMarketModel liborModel) {
 				timeDiscretization = liborModel.getCovarianceModel().getTimeDiscretization();
 			}
@@ -404,28 +405,30 @@ public class DefaultableLIBORModelFactory {
 		}
 		
 		final BrownianMotion brownianMotion = new BrownianMotionFromMersenneRandomNumbers(timeDiscretization, model.getNumberOfFactors(), numberOfPaths, brownianMotionSeed);
-		
-		switch(numericalScheme) {
-		case EULER:
-			return new EulerSchemeFromProcessModel(model, brownianMotion, EulerSchemeFromProcessModel.Scheme.EULER);
-		case EULER_FUNCTIONAL:
-			return new EulerSchemeFromProcessModel(model, brownianMotion, EulerSchemeFromProcessModel.Scheme.EULER_FUNCTIONAL);
-		case MILSTEIN_ANALYTIC:
-			if(analyticDifferentialFactorLoadings == null)
-				throw new NullPointerException("For the Milstein Scheme with analytic differential the analytic differential of the Factor Loadings must be set!");
-			return new MilsteinSchemeAnalyticDerivative(model, brownianMotion, analyticDifferentialFactorLoadings);
-		case MILSTEIN_FDBACKWARD:
-			MilsteinSchemeFiniteDifference.FiniteDifferenceMethod methodBack = MilsteinSchemeFiniteDifference.FiniteDifferenceMethod.BACKWARD;
-			return new MilsteinSchemeFiniteDifference(model, brownianMotion, methodBack, finiteDifferenceDelta);
-		case MILSTEIN_FDFORWARD:
-			MilsteinSchemeFiniteDifference.FiniteDifferenceMethod methodFor = MilsteinSchemeFiniteDifference.FiniteDifferenceMethod.FORWARD;
-			return new MilsteinSchemeFiniteDifference(model, brownianMotion, methodFor, finiteDifferenceDelta);
-		case MILSTEIN_FDCENTRAL:
-			MilsteinSchemeFiniteDifference.FiniteDifferenceMethod methodCent = MilsteinSchemeFiniteDifference.FiniteDifferenceMethod.CENTRAL;
-			return new MilsteinSchemeFiniteDifference(model, brownianMotion, methodCent, finiteDifferenceDelta);
-		default:
-			throw new UnsupportedOperationException("The Numerical Scheme is not implemented by this factory!");
-		}
+
+        return switch (numericalScheme) {
+            case EULER ->
+                    new EulerSchemeFromProcessModel(model, brownianMotion, EulerSchemeFromProcessModel.Scheme.EULER);
+            case EULER_FUNCTIONAL ->
+                    new EulerSchemeFromProcessModel(model, brownianMotion, EulerSchemeFromProcessModel.Scheme.EULER_FUNCTIONAL);
+            case MILSTEIN_ANALYTIC -> {
+                if (analyticDifferentialFactorLoadings == null)
+                    throw new NullPointerException("For the Milstein Scheme with analytic differential the analytic differential of the Factor Loadings must be set!");
+                yield new MilsteinSchemeAnalyticDerivative(model, brownianMotion, analyticDifferentialFactorLoadings);
+            }
+            case MILSTEIN_FDBACKWARD -> {
+                MilsteinSchemeFiniteDifference.FiniteDifferenceMethod methodBack = MilsteinSchemeFiniteDifference.FiniteDifferenceMethod.BACKWARD;
+                yield new MilsteinSchemeFiniteDifference(model, brownianMotion, methodBack, finiteDifferenceDelta);
+            }
+            case MILSTEIN_FDFORWARD -> {
+                MilsteinSchemeFiniteDifference.FiniteDifferenceMethod methodFor = MilsteinSchemeFiniteDifference.FiniteDifferenceMethod.FORWARD;
+                yield new MilsteinSchemeFiniteDifference(model, brownianMotion, methodFor, finiteDifferenceDelta);
+            }
+            case MILSTEIN_FDCENTRAL -> {
+                MilsteinSchemeFiniteDifference.FiniteDifferenceMethod methodCent = MilsteinSchemeFiniteDifference.FiniteDifferenceMethod.CENTRAL;
+                yield new MilsteinSchemeFiniteDifference(model, brownianMotion, methodCent, finiteDifferenceDelta);
+            }
+        };
 	}
 	
 	public MonteCarloProcess createNumericalScheme() throws NullPointerException, CalculationException {

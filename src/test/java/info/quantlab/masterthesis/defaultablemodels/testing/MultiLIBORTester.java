@@ -64,7 +64,7 @@ public class MultiLIBORTester {
 	@Test
 	public void testNonDefaultableModel() {
 		IndependentIncrements nonDefStochasticDriver = FunctionsOnIndependentIncrements.getRangeOfFactors(multiProcess.getStochasticDriver(), 0, numberOfFactorsNonDefaultable - 1);
-		MonteCarloProcess nonDefProcess = new EulerSchemeFromProcessModel(multiModel.getUndefaultableModel(), nonDefStochasticDriver, Scheme.EULER_FUNCTIONAL);
+		MonteCarloProcess nonDefProcess = new EulerSchemeFromProcessModel(multiModel.getNonDefaultableModel(), nonDefStochasticDriver, Scheme.EULER_FUNCTIONAL);
 		
 		
 		Assert.assertTrue(true);
@@ -122,7 +122,7 @@ public class MultiLIBORTester {
 		if(multiProcess != null)
 			return multiProcess;
 		
-		TimeDiscretization times = multiModel.getUndefaultableModel().getCovarianceModel().getTimeDiscretization();
+		TimeDiscretization times = multiModel.getNonDefaultableModel().getCovarianceModel().getTimeDiscretization();
 		BrownianMotion myBM = new BrownianMotionFromMersenneRandomNumbers(times, multiModel.getNumberOfFactors(), paths, bmSeed);
 		return new EulerSchemeFromProcessModel(multiModel, myBM, EulerSchemeFromProcessModel.Scheme.EULER_FUNCTIONAL);
 	}

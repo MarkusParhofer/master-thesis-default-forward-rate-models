@@ -18,7 +18,6 @@ import org.jfree.chart.plot.DrawingSupplier;
 
 import net.finmath.plots.GraphStyle;
 import net.finmath.plots.Named;
-import net.finmath.plots.Plot2D;
 import net.finmath.plots.Plotable2D;
 import net.finmath.plots.PlotableFunction2D;
 import net.finmath.plots.PlotablePoints2D;
@@ -33,12 +32,12 @@ public class EasyPlot2D extends Plot2D {
 
 	private static DrawingSupplier staticDrawingSupplier = new DefaultDrawingSupplier();
 	
-	private DrawingSupplier unstaticDrawingSupplier;
+	private final DrawingSupplier unstaticDrawingSupplier;
 	
 	private static Shape lastShape;
 	
 	private List<Plotable2D> plotables;
-	
+
 	// Multiple Plots
 	public EasyPlot2D(final List<Plotable2D> plotables) {
 		super(plotables);
@@ -49,14 +48,14 @@ public class EasyPlot2D extends Plot2D {
 	
 	public EasyPlot2D(final double xmin, final double xmax, final int numberOfPointsX, final List<Named<DoubleUnaryOperator>> doubleUnaryOperators) {
 		this(doubleUnaryOperators.stream().map(namedFunction -> 
-		{ return new PlotableFunction2D(xmin, xmax, numberOfPointsX, namedFunction, 
-				getDefaultGraphStyle(doubleUnaryOperators.indexOf(namedFunction), true, staticDrawingSupplier)); })
+		new PlotableFunction2D(xmin, xmax, numberOfPointsX, namedFunction,
+				getDefaultGraphStyle(doubleUnaryOperators.indexOf(namedFunction), true, staticDrawingSupplier)))
 				.collect(Collectors.toList()));
 	}
 
 	public EasyPlot2D(final double xmin, final double xmax, final int numberOfPointsX, final DoubleUnaryOperator[] doubleUnaryOperators) {
 		this(xmin, xmax, numberOfPointsX,
-				Arrays.stream(doubleUnaryOperators).map(operator -> new Named<DoubleUnaryOperator>("", operator)).collect(Collectors.toList())
+				Arrays.stream(doubleUnaryOperators).map(operator -> new Named<>("", operator)).collect(Collectors.toList())
 				);
 	}
 
@@ -75,20 +74,15 @@ public class EasyPlot2D extends Plot2D {
 	}
 	
 	public EasyPlot2D(final double xmin, final double xmax, final int numberOfPointsX, final DoubleUnaryOperator function, final GraphStyle style) {
-		this(new PlotableFunction2D(xmin, xmax, numberOfPointsX, new Named<DoubleUnaryOperator>("", function), style));
+		this(new PlotableFunction2D(xmin, xmax, numberOfPointsX, new Named<>("", function), style));
 	}
 
 	public EasyPlot2D(final double xmin, final double xmax, final int numberOfPointsX, final DoubleUnaryOperator function) {
-		this(xmin, xmax, numberOfPointsX, Collections.singletonList(new Named<DoubleUnaryOperator>("",function)));
+		this(xmin, xmax, numberOfPointsX, Collections.singletonList(new Named<>("", function)));
 	}
 	
 	public EasyPlot2D(final double xmin, final double xmax, final int numberOfPointsX, final Function<Double, Double> function) {
-		this(xmin, xmax, numberOfPointsX, Collections.singletonList(new Named<DoubleUnaryOperator>("", new DoubleUnaryOperator() {
-			@Override
-			public double applyAsDouble(double operand) {
-				return function.apply(operand);
-			}
-		})));
+		this(xmin, xmax, numberOfPointsX, Collections.singletonList(new Named<>("", function::apply)));
 	}
 	
 	
@@ -125,9 +119,9 @@ public class EasyPlot2D extends Plot2D {
 		this.plotables = plotables;
 		return super.update(plotables);
 	}
-	
-	public void update() {
-		super.update(plotables);
+
+	public Plot2D update() {
+		return super.update(plotables);
 	}
 	
 	public GraphStyle changePlotStyle(final int plotIndex, final GraphStyle newStyle) {
@@ -139,26 +133,22 @@ public class EasyPlot2D extends Plot2D {
 		final double xMin = plotToChange.getSeries().get(0).getX();
 		final double xMax = plotToChange.getSeries().get(plotToChange.getSeries().size() - 1).getX();
 		
-		Named<DoubleUnaryOperator> newFunction = new Named<DoubleUnaryOperator>(plotToChange.getName(), 
-				new DoubleUnaryOperator() {
-			@Override
-			public double applyAsDouble(double operand) {
-				for(int index = 0; index < plotToChange.getSeries().size(); index++) {
-					if(plotToChange.getSeries().get(index).getX() == operand)
-						return plotToChange.getSeries().get(index).getY();
-				}
-				return 0;
-			}
-		});
+		Named<DoubleUnaryOperator> newFunction = new Named<>(plotToChange.getName(),
+                operand -> {
+                    for(int index = 0; index < plotToChange.getSeries().size(); index++) {
+                        if(plotToChange.getSeries().get(index).getX() == operand)
+                            return plotToChange.getSeries().get(index).getY();
+                    }
+                    return 0;
+                });
 		
 		Plotable2D newPlot = new PlotableFunction2D(xMin, xMax, plotToChange.getSeries().size(), newFunction, newStyle);
-		List<Plotable2D> newPlotables = plotables.stream().map(plotable -> {
+		plotables = plotables.stream().map(plotable -> {
 			if(plotable == plotToChange)
 				return newPlot;
 			else
 				return plotable;
 		}).collect(Collectors.toList());
-		plotables = newPlotables;
 		update();
 		return returnStyle;
 	}
@@ -178,32 +168,38 @@ public class EasyPlot2D extends Plot2D {
 	public Color changePlotColor(final Color newColor) {
 		return changePlotColor(0, newColor);
 	}
-	
+
+	public Shape changePlotMarker(final int plotIndex, final Shape newShape) {
+
+		Plotable2D plotToChange = plotables.get(plotIndex);
+
+		final boolean styleWasSet = plotToChange.getStyle() != null;
+
+		GraphStyle newGraphStyle = new GraphStyle(newShape, styleWasSet? plotToChange.getStyle().getStroke() : new BasicStroke(2.0f), styleWasSet? plotToChange.getStyle().getColor() : getDefaultColor(plotIndex));
+
+		GraphStyle oldStyle = changePlotStyle(plotIndex, newGraphStyle);
+
+		return oldStyle.getShape();
+	}
+
+	public Shape changePlotMarker(final Shape newShape) {
+		return changePlotMarker(0, newShape);
+	}
+
 	public static Color getDefaultColor(final int colorIndex) {
-		switch (colorIndex % 10) {
-		case 0:
-			return new java.awt.Color(0, (int)(0.4470*255), (int)(0.7410*255));
-		case 1:
-			return new java.awt.Color((int)(0.8500*255), (int)(0.3250*255), (int)(0.0980*255));
-		case 2:
-			return new java.awt.Color((int)(0.9290*255), (int)(0.6940*255), (int)(0.1250*255));
-		case 3:
-			return new java.awt.Color((int)(0.4940*255), (int)(0.1840*255), (int)(0.5560*255));
-		case 4:
-			return new java.awt.Color((int)(0.4660*255), (int)(0.6740*255), (int)(0.1880*255));
-		case 5:
-			return new java.awt.Color((int)(0.3010*255), (int)(0.7450*255), (int)(0.9330*255));
-		case 6:
-			return new java.awt.Color((int)(0.6350*255), (int)(0.0780*255), (int)(0.1840*255));
-		case 7:
-			return new java.awt.Color(255, 0, 0);
-		case 8:
-			return new java.awt.Color(0, 255, 0);
-		case 9:
-			return new java.awt.Color(0, 0, 255);
-		default:
-			return new java.awt.Color(0, 0,  0);
-		}
+        return switch (colorIndex % 10) {
+            case 0 -> new Color(0, (int) (0.4470 * 255), (int) (0.7410 * 255));
+            case 1 -> new Color((int) (0.8500 * 255), (int) (0.3250 * 255), (int) (0.0980 * 255));
+            case 2 -> new Color((int) (0.9290 * 255), (int) (0.6940 * 255), (int) (0.1250 * 255));
+            case 3 -> new Color((int) (0.4940 * 255), (int) (0.1840 * 255), (int) (0.5560 * 255));
+            case 4 -> new Color((int) (0.4660 * 255), (int) (0.6740 * 255), (int) (0.1880 * 255));
+            case 5 -> new Color((int) (0.3010 * 255), (int) (0.7450 * 255), (int) (0.9330 * 255));
+            case 6 -> new Color((int) (0.6350 * 255), (int) (0.0780 * 255), (int) (0.1840 * 255));
+            case 7 -> new Color(255, 0, 0);
+            case 8 -> new Color(0, 255, 0);
+            case 9 -> new Color(0, 0, 255);
+            default -> new Color(0, 0, 0);
+        };
 		
 	}
 	

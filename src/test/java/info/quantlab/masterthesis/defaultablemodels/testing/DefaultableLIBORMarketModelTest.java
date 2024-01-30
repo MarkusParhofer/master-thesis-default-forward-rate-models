@@ -134,7 +134,7 @@ public class DefaultableLIBORMarketModelTest {
 		System.out.printf("LIBOR Period %21s Non-Defaultable %5s Defaultable %9s Spread %n", " ", " ", " ");
 		tic();
 		for(int i=0; i < defaultableModel.getNumberOfLibors(); i++) {
-			final double nonDefRate = defaultableModel.getUndefaultableLIBOR(process, 0, i).doubleValue();
+			final double nonDefRate = defaultableModel.getNonDefaultableLIBOR(process, 0, i).doubleValue();
 			final double defRate = defaultableModel.getLIBOR(process, 0, i).doubleValue();
 			final double spread = defaultableModel.getLIBORSpreadAtGivenTimeIndex(process, 0, i).doubleValue();
 			System.out.printf("%2d (fixing time: %4.1f): %10s %10.8f %10s %10.8f %10s %10.8f %n", 
@@ -225,7 +225,7 @@ public class DefaultableLIBORMarketModelTest {
 						int timeIndex = defaultableLiborMarketModel.getTimeIndex(operand);
 						if(timeIndex < 0)
 							timeIndex = - timeIndex - 2;
-						return defModel.getUndefaultableLIBOR(defaultableLiborMarketModel.getProcess(), timeIndex, compIndex).getAverage();
+						return defModel.getNonDefaultableLIBOR(defaultableLiborMarketModel.getProcess(), timeIndex, compIndex).getAverage();
 					} catch (CalculationException e) {
 						return - 1.0;
 					}
@@ -445,7 +445,7 @@ public class DefaultableLIBORMarketModelTest {
 
 			@Override
 			public RandomVariable getForwardRate(double time, double periodStart, double periodEnd) throws CalculationException {
-				return defaultableTheoModel.getUndefaultableForwardRate(normalProcess, time, periodStart, periodEnd);
+				return defaultableTheoModel.getNonDefaultableForwardRate(normalProcess, time, periodStart, periodEnd);
 			}
 
 			@Override
@@ -455,7 +455,7 @@ public class DefaultableLIBORMarketModelTest {
 
 			@Override
 			public TermStructureModel getModel() {
-				return defaultableTheoModel.getUndefaultableLIBORModel();
+				return defaultableTheoModel.getNonDefaultableLIBORModel();
 			}
 
 			@Override
@@ -520,7 +520,7 @@ public class DefaultableLIBORMarketModelTest {
 
 			@Override
 			public int getNumberOfLibors() {
-				return defaultableTheoModel.getUndefaultableLIBORModel().getNumberOfLibors();
+				return defaultableTheoModel.getNonDefaultableLIBORModel().getNumberOfLibors();
 			}
 
 			@Override

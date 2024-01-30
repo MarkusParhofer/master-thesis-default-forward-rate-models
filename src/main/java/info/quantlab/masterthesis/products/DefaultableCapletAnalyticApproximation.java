@@ -11,13 +11,15 @@ import net.finmath.stochastic.RandomVariable;
 import net.finmath.stochastic.Scalar;
 import net.finmath.time.TimeDiscretization;
 
+
+/* TODO: Handle Analytic SurvivalProbability!!! */
 public class DefaultableCapletAnalyticApproximation extends AbstractDefaultableTermStructureProduct{
 	final double _strikeRate;
 	final double _fixingTime;
 	final double _periodLength;
 	final double _notional;
 	final int _underlyingModelIndex; /* if <0 underlying is undefaultable Model else it is a defaultable model with the specified index. */
-	final int _issuerModelIndex; /* if <0 issuer has undefaultable Model else it is a defaultable model with the specified index. */
+	final int _issuerModelIndex; /* if <0 issuer has nondefaultable Model else it is a defaultable model with the specified index. */
 	
 	public DefaultableCapletAnalyticApproximation(final double strikeRate, final double fixingTime, final double periodLength, 
 			final int modelIndexOfUnderlying, final int modelIndexOfIssuer, final double notional) {
@@ -70,20 +72,26 @@ public class DefaultableCapletAnalyticApproximation extends AbstractDefaultableT
 		
 		if(model instanceof DefaultableLIBORMarketModel defModel) {
 			// Adjust Payoff Unit:
-			if(_issuerModelIndex >=0) 
+			if(_issuerModelIndex >=0)
 				// Issuer must survive until payment date for the buyer to get money:
-				payOffUnit *= defModel.getSurvivalProbability(null, 0.0, _fixingTime + _periodLength).doubleValue();
-			else if(_underlyingModelIndex >= 0) 
+				// TODO: payOffUnit *= defModel.getSurvivalProbability(null, 0.0, _fixingTime + _periodLength).doubleValue();
+			{
+				System.out.println("There is no analytic approximation of the Survival Probability");
+			}
+			else if(_underlyingModelIndex >= 0) {
 				// Underlying must survive until fixing date for the buyer to get money: (Otherwise L(fixing; fixing, payment) = 0 => (L-K)^+ = 0)
-				payOffUnit *= defModel.getSurvivalProbability(null, 0.0, _fixingTime).doubleValue();
-			
+				// TODO: payOffUnit *= defModel.getSurvivalProbability(null, 0.0, _fixingTime).doubleValue();
+				System.out.println("There is no analytic approximation of the Survival Probability");
+			}
 			// Adjust Initial LIBOR
-			if(_underlyingModelIndex < 0)
-				liborForward = defModel.getUndefaultableLIBORModel().getForwardRateCurve().getForward(null, _fixingTime);
+			if(_underlyingModelIndex < 0) {
+				liborForward = defModel.getNonDefaultableLIBORModel().getForwardRateCurve().getForward(null, _fixingTime);
+			}
+
 		
 			// Calculate Covariance:
 			if(_underlyingModelIndex < 0)
-				integratedLIBORCov = defModel.getUndefaultableLIBORModel().getIntegratedLIBORCovariance(simulationTenor)[fixingTimeIndexOnSimTenor][fixingTimeIndexOnLIBORPeriods][fixingTimeIndexOnLIBORPeriods];
+				integratedLIBORCov = defModel.getNonDefaultableLIBORModel().getIntegratedLIBORCovariance(simulationTenor)[fixingTimeIndexOnSimTenor][fixingTimeIndexOnLIBORPeriods][fixingTimeIndexOnLIBORPeriods];
 			else
 				integratedLIBORCov = defModel.getIntegratedLIBORCovariance(simulationTenor)[fixingTimeIndexOnSimTenor][fixingTimeIndexOnLIBORPeriods][fixingTimeIndexOnLIBORPeriods];
 			

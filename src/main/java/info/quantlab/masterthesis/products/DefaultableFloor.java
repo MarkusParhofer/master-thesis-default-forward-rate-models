@@ -24,10 +24,10 @@ import net.finmath.time.TimeDiscretization;
  * <ul>
  * <li>If it is a non defaultable ProcessModel, this class behaves like a normal floor.</li>
  * <li>If it is a MultiLIBORVectorModel, the underlying- resp. issuerModelIndex correspond to either the zero-based index of 
- * {@link MultiLIBORVectorModel#getArrayOfDefaultableModels()} (if non-negative) or the {@link MultiLIBORVectorModel#getUndefaultableModel()} 
+ * {@link MultiLIBORVectorModel#getArrayOfDefaultableModels()} (if non-negative) or the {@link MultiLIBORVectorModel#getNonDefaultableModel()}
  * (if negative).</li>
  * <li>If it is a DefaultableLIBORMarketModel, and the underlying- resp. issuerModelIndex is non-negative the purely defaultable model is used, 
- * else the {@link DefaultableLIBORMarketModel#getUndefaultableLIBORModel()}.</li>
+ * else the {@link DefaultableLIBORMarketModel#getNonDefaultableLIBORModel()}.</li>
  * </ul>
  * 
  * @author Markus Parhofer
@@ -201,13 +201,13 @@ public class DefaultableFloor extends AbstractDefaultableTermStructureProduct {
 			
 			if(model.getModel() instanceof DefaultableLIBORMarketModel defaultableModel) {
 				if(_issuerModelIndex >= 0)
-					survivalProbability = defaultableModel.getSurvivalProbability(model.getProcess(), evaluationTime, paymentTime);
+					survivalProbability = defaultableModel.getSurvivalProbability(model.getProcess(), paymentTime);
 				if(_underlyingModelIndex < 0)
-					forwardRate = defaultableModel.getUndefaultableForwardRate(model.getProcess(), fixingDate, fixingDate, paymentTime);
+					forwardRate = defaultableModel.getNonDefaultableForwardRate(model.getProcess(), fixingDate, fixingDate, paymentTime);
 			}
 			else if(model.getModel() instanceof MultiLIBORVectorModel multiModel) {
 				if(_issuerModelIndex >= 0)
-					survivalProbability = multiModel.getSurvivalProbability(model.getProcess(), evaluationTime, paymentTime, _issuerModelIndex);
+					survivalProbability = multiModel.getSurvivalProbability(model.getProcess(), paymentTime, _issuerModelIndex);
 				if(_underlyingModelIndex >= 0)
 					forwardRate = multiModel.getDefaultableForwardRate(model.getProcess(), fixingDate, fixingDate, paymentTime, _underlyingModelIndex);
 			}

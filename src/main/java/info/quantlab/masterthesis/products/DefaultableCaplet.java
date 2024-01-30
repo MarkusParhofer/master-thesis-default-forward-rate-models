@@ -23,10 +23,10 @@ import net.finmath.stochastic.RandomVariable;
  * <ul>
  * <li>If it is a non defaultable ProcessModel, this class behaves like a normal cap.</li>
  * <li>If it is a MultiLIBORVectorModel, the underlying- resp. issuerModelIndex correspond to either the zero-based index of 
- * {@link MultiLIBORVectorModel#getArrayOfDefaultableModels()} (if non-negative) or the {@link MultiLIBORVectorModel#getUndefaultableModel()} 
+ * {@link MultiLIBORVectorModel#getArrayOfDefaultableModels()} (if non-negative) or the {@link MultiLIBORVectorModel#getNonDefaultableModel()}
  * (if negative).</li>
  * <li>If it is a DefaultableLIBORMarketModel, and the underlying- resp. issuerModelIndex is non-negative the purely defaultable model is used, 
- * else the {@link DefaultableLIBORMarketModel#getUndefaultableLIBORModel()}.</li>
+ * else the {@link DefaultableLIBORMarketModel#getNonDefaultableLIBORModel()}.</li>
  * </ul>
  * 
  * @author Markus Parhofer
@@ -119,7 +119,6 @@ public class DefaultableCaplet extends AbstractSellerDefaultableTermStructurePro
 	 * 
 	 * @param strikeRate The fixed strike rate.
 	 * @param fixingTime The maturity date where the interest rate is fixed and the interest period begins.
-	 * @param periodLength The length of the interest period.
 	 * @param isFloorlet A flag that specifies if the product is a floorlet instead of a caplet.
 	 */
 	public DefaultableCaplet(final double strikeRate, final double fixingTime, final double paymentTime, final boolean isFloorlet) {
@@ -149,18 +148,18 @@ public class DefaultableCaplet extends AbstractSellerDefaultableTermStructurePro
 
 		if(model.getModel() instanceof DefaultableLIBORMarketModel defaultableModel) {
 			if(_issuerModelIndex >= 0)
-				survivalProbability = defaultableModel.getSurvivalProbability(model.getProcess(), evaluationTime, paymentTime);
+				survivalProbability = defaultableModel.getSurvivalProbability(model.getProcess(), paymentTime);
 			if(_underlyingModelIndex < 0)
-				forwardRate = defaultableModel.getUndefaultableForwardRate(model.getProcess(), _fixingTime, _fixingTime, paymentTime);
+				forwardRate = defaultableModel.getNonDefaultableForwardRate(model.getProcess(), _fixingTime, _fixingTime, paymentTime);
 			else
-				survivalProbabilityUnderlying = defaultableModel.getSurvivalProbability(model.getProcess(), evaluationTime, _fixingTime);
+				survivalProbabilityUnderlying = defaultableModel.getSurvivalProbability(model.getProcess(), _fixingTime);
 		}
 		else if(model.getModel() instanceof MultiLIBORVectorModel multiModel) {
 			if(_issuerModelIndex >= 0)
-				survivalProbability = multiModel.getSurvivalProbability(model.getProcess(), evaluationTime, paymentTime, _issuerModelIndex);
+				survivalProbability = multiModel.getSurvivalProbability(model.getProcess(), paymentTime, _issuerModelIndex);
 			if(_underlyingModelIndex >= 0) {
 				forwardRate = multiModel.getDefaultableForwardRate(model.getProcess(), _fixingTime, _fixingTime, paymentTime, _underlyingModelIndex);
-				survivalProbabilityUnderlying = multiModel.getSurvivalProbability(model.getProcess(), evaluationTime, _fixingTime, _underlyingModelIndex);
+				survivalProbabilityUnderlying = multiModel.getSurvivalProbability(model.getProcess(), _fixingTime, _underlyingModelIndex);
 			}
 		}
 		/*

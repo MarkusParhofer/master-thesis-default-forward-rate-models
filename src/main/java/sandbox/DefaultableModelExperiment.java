@@ -275,7 +275,7 @@ public class DefaultableModelExperiment {
 			System.out.println();
 			System.out.print("Und P1: "); // Process 1
 			for(int i=1; i<timeDiscretization.getNumberOfTimeSteps(); i++) {
-				System.out.printf("%12.8f |", newestModel.getUndefaultableLIBOR(myProcess, i, 9).get(path));
+				System.out.printf("%12.8f |", newestModel.getNonDefaultableLIBOR(myProcess, i, 9).get(path));
 			}
 			System.out.println();
 			System.out.print("Und P2: "); // Process 2

@@ -19,6 +19,7 @@ import java.util.function.DoubleUnaryOperator;
 import java.util.function.IntUnaryOperator;
 import java.util.stream.Collectors;
 
+import info.quantlab.masterthesis.factory.DefaultableLIBORModelFactory;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -70,7 +71,7 @@ public class ModelFromSpreadTest extends info.quantlab.debug.Time{
 			// For now the most stable version:
 			//{"Run 1: Modelling defaultable LIBORs", 		 0.001, 	2, "LIBORS", 	"EULER",					"SPOT", 	new double[] { 0.04, 0.049, 0.062, 0.049, 0.044, 0.031 }, 1},
 			
-			{"Run 2: Modelling Spreads Milstein", 	0.01, 		2, "SPREADS", 	"MILSTEIN_FDCENTRAL",		"SPOT", 	new double[] { 0.04, 0.049, 0.062, 0.049, 0.044, 0.031 }, 2},
+			//{"Run 2: Modelling Spreads Milstein", 	0.01, 		2, "SPREADS", 	"MILSTEIN_FDCENTRAL",		"SPOT", 	new double[] { 0.04, 0.049, 0.062, 0.049, 0.044, 0.031 }, 2},
 			//{"Run 2: Spread with normal model",		0.001, 	2, "SPREADS",	"NORMAL",		"SPOT", 	new double[] { 0.04, 0.049, 0.062, 0.049, 0.044, 0.031 }, 0},
 			/*{"Run 2: Spread is 0", 					0.01, 	2, "SPREADS",	"LOGNORMAL", 	"SPOT", 	new double[] { 0.035, 0.043, 0.05, 0.041, 0.035, 0.02 },  2},
 			{"Run 3: Rougher time delta", 			0.1, 	2, "SPREADS",	"LOGNORMAL", 	"SPOT", 	new double[] { 0.04, 0.049, 0.062, 0.049, 0.044, 0.031 }, 3},
@@ -141,7 +142,7 @@ public class ModelFromSpreadTest extends info.quantlab.debug.Time{
 				final int compIndex = j;
 				myFunctionArray[j] = (operand) -> {
 						try {
-							return defModel.getUndefaultableLIBOR(model.getProcess(), getTimeIndex.applyAsInt(operand), compIndex).getAverage();
+							return defModel.getNonDefaultableLIBOR(model.getProcess(), getTimeIndex.applyAsInt(operand), compIndex).getAverage();
 						} catch (CalculationException e) {
 							return - 1.0;
 						}
@@ -197,7 +198,7 @@ public class ModelFromSpreadTest extends info.quantlab.debug.Time{
 					final int pathIndex = path;
 					fArrayNonDefModel[path] = (operand) -> {
 							try {
-								return defModel.getUndefaultableLIBOR(model.getProcess(), getTimeIndex.applyAsInt(operand), libor).get(pathIndex);
+								return defModel.getNonDefaultableLIBOR(model.getProcess(), getTimeIndex.applyAsInt(operand), libor).get(pathIndex);
 							} catch (CalculationException e) {
 								return - 1.0;
 							}
@@ -311,7 +312,7 @@ public class ModelFromSpreadTest extends info.quantlab.debug.Time{
 		for (int row = 0; row < numberOfLiborPeriods; row++) {
 			System.out.printf(" %12s: ", "NonDefRate "+ row);
 			for(int timeIndex = 0; timeIndex < maxTimeIndexToPrint; timeIndex+=1) {
-				System.out.printf("%9.4f      ", defTheoModel.getUndefaultableLIBOR(model.getProcess(),timeIndex, row).get(0));
+				System.out.printf("%9.4f      ", defTheoModel.getNonDefaultableLIBOR(model.getProcess(),timeIndex, row).get(0));
 			}
 			System.out.println();
 		}
@@ -430,34 +431,37 @@ public class ModelFromSpreadTest extends info.quantlab.debug.Time{
 		for (double maturity = 2.0; maturity <= liborPeriodLength  * (model.getNumberOfLibors() - 1); maturity += liborPeriodLength) {
 			System.out.print(formatterMaturity.format(maturity) + "          ");
 			
-			final double strikeRate = getParSwaprate(model, new double[] { maturity, maturity + liborPeriodLength});
-			System.out.print(formatterValue.format(strikeRate) + "        ");
+			final double strikeRateDef = getParSwaprate(model, new double[] { maturity, maturity + liborPeriodLength}) + 0.01;
+			System.out.print(formatterValue.format(strikeRateDef) + "        ");
 			
-			DefaultableCaplet defCaplet = new DefaultableCaplet(strikeRate, maturity, liborPeriodLength, true, false);
+			DefaultableCaplet defCaplet = new DefaultableCaplet(strikeRateDef, maturity, liborPeriodLength, true, false);
 			final double simulationValue = defCaplet.getValue(model);
 			System.out.print(formatterValue.format(simulationValue) + "       ");
 			
-			DefaultableCapletAnalyticApproximation defCapletAnalytic = new DefaultableCapletAnalyticApproximation(strikeRate, maturity, liborPeriodLength, true, false);
+			DefaultableCapletAnalyticApproximation defCapletAnalytic = new DefaultableCapletAnalyticApproximation(strikeRateDef, maturity, liborPeriodLength, true, false);
 			final double analyticValue = defCapletAnalytic.getValue(model);
 			System.out.print(formatterValue.format(analyticValue) + "      ");
 			
 			final double absDeviation = Math.abs(analyticValue - simulationValue);
 			System.out.print(formatterDeviation.format(absDeviation) + "    |  ");
-			
-			DefaultableCaplet nonDefCaplet = new DefaultableCaplet(strikeRate, maturity, liborPeriodLength, false, false);
+
+			final double strikeRateNonDef = getParSwaprate(getNonDefaultableValuationModel(), new double[] { maturity, maturity + liborPeriodLength});
+			System.out.print(formatterValue.format(strikeRateNonDef) + "        ");
+
+			DefaultableCaplet nonDefCaplet = new DefaultableCaplet(strikeRateNonDef, maturity, liborPeriodLength, false, false);
 			final double nonDefSimulationValue = nonDefCaplet.getValue(model);
 			System.out.print(formatterValue.format(nonDefSimulationValue) + "            ");
 			
-			Caplet nonDefCapletAlt = new Caplet(maturity, liborPeriodLength, strikeRate, false);
+			Caplet nonDefCapletAlt = new Caplet(maturity, liborPeriodLength, strikeRateNonDef, false);
 			final double nonDefFinMathSimulationValue = nonDefCapletAlt.getValue(getNonDefaultableValuationModel());
 			System.out.print(formatterValue.format(nonDefFinMathSimulationValue) + "          ");
 			
-			DefaultableCapletAnalyticApproximation nonDefCapletAnalytic = new DefaultableCapletAnalyticApproximation(strikeRate, maturity, liborPeriodLength, false, false);
+			DefaultableCapletAnalyticApproximation nonDefCapletAnalytic = new DefaultableCapletAnalyticApproximation(strikeRateNonDef, maturity, liborPeriodLength, false, false);
 			final double nonDefAnalyticValue = nonDefCapletAnalytic.getValue(model);
 			System.out.print(formatterValue.format(nonDefAnalyticValue) + "       ");
 			
 			TimeDiscretization swapTenor = new TimeDiscretizationFromArray(maturity, maturity + liborPeriodLength);
-			SwaptionGeneralizedAnalyticApproximation nonDefCapletAnalyticFromSwaption = new SwaptionGeneralizedAnalyticApproximation(strikeRate, swapTenor, StateSpace.NORMAL);
+			SwaptionGeneralizedAnalyticApproximation nonDefCapletAnalyticFromSwaption = new SwaptionGeneralizedAnalyticApproximation(strikeRateDef, swapTenor, StateSpace.NORMAL);
 			final double nonDefFinMathAnalyticValue = nonDefCapletAnalyticFromSwaption.getValue(getNonDefaultableValuationModel());
 			System.out.println(formatterValue.format(nonDefFinMathAnalyticValue));
 			
@@ -520,20 +524,20 @@ public class ModelFromSpreadTest extends info.quantlab.debug.Time{
 		
 		properties.put("covarianceModel", DefaultableLIBORModelFactory.CovarianceModel.BLENDED);
 		properties.put("numberOfFactors", 5);
-		properties.put("volatilityParams", new double[] {0.1, 0.0, 0.25, 0.1});
+		properties.put("volatilityParams", new double[] {0.2, 0.0, 0.25, 0.15});
 		properties.put("correlationDecayParam", 0.2);
-		properties.put("displacement", 0.6);
+		properties.put("displacement", 0.0001);
 		properties.put("initialRatesNonDefaultable", new double[] { 0.035, 0.043, 0.05, 0.041, 0.035, 0.02 });
 		
 		properties.put("numberOfExtraFactors", numberOfExtraFactors);
 		properties.put("initialRatesDefaultable", initialRatesDefaultable);
 		properties.put("simulationModel", simulationProduct);
-		properties.put("stateSpaceOfSpread", "NORMAL");
+		properties.put("stateSpaceOfSpread", "LOGNORMAL");
 		properties.put("freeParamsSeed", 2000);
-		properties.put("freeParamsRange", 0.5);
+		properties.put("freeParamsRange", 1.0);
 		// properties.put("freeParamsGenerator", freeParamsGenerator); // None needed because the default one is great! lol...
 		properties.put("simulationTimeDelta", simulationTimeDelta);
-		properties.put("numberOfPaths", 10000);
+		properties.put("numberOfPaths", 50000);
 		properties.put("brownianMotionSeed", bmSeed);
 		properties.put("numericalScheme", scheme);
 		properties.put("finiteDifferenceDelta", 1E-6);
@@ -595,7 +599,7 @@ public class ModelFromSpreadTest extends info.quantlab.debug.Time{
 
 			@Override
 			public RandomVariable getForwardRate(double time, double periodStart, double periodEnd) throws CalculationException {
-				return defaultableTheoModel.getUndefaultableForwardRate(normalProcess, time, periodStart, periodEnd);
+				return defaultableTheoModel.getNonDefaultableForwardRate(normalProcess, time, periodStart, periodEnd);
 			}
 
 			@Override
@@ -605,7 +609,7 @@ public class ModelFromSpreadTest extends info.quantlab.debug.Time{
 
 			@Override
 			public TermStructureModel getModel() {
-				return defaultableTheoModel.getUndefaultableLIBORModel();
+				return defaultableTheoModel.getNonDefaultableLIBORModel();
 			}
 
 			@Override
@@ -669,7 +673,7 @@ public class ModelFromSpreadTest extends info.quantlab.debug.Time{
 
 			@Override
 			public int getNumberOfLibors() {
-				return defaultableTheoModel.getUndefaultableLIBORModel().getNumberOfLibors();
+				return defaultableTheoModel.getNonDefaultableLIBORModel().getNumberOfLibors();
 			}
 
 			@Override
@@ -684,7 +688,7 @@ public class ModelFromSpreadTest extends info.quantlab.debug.Time{
 
 			@Override
 			public RandomVariable getLIBOR(int timeIndex, int liborIndex) throws CalculationException {
-				return defaultableTheoModel.getUndefaultableLIBOR(normalProcess, timeIndex, liborIndex);
+				return defaultableTheoModel.getNonDefaultableLIBOR(normalProcess, timeIndex, liborIndex);
 			}
 
 			@Override
@@ -800,7 +804,7 @@ public class ModelFromSpreadTest extends info.quantlab.debug.Time{
 				myWriter.write("\n");
 			}
 			{
-				LIBORMarketModelFromCovarianceModel nonDefModel = (LIBORMarketModelFromCovarianceModel)((DefaultableLIBORFromSpreadDynamic)model.getModel()).getUndefaultableLIBORModel();
+				LIBORMarketModelFromCovarianceModel nonDefModel = (LIBORMarketModelFromCovarianceModel)((DefaultableLIBORFromSpreadDynamic)model.getModel()).getNonDefaultableLIBORModel();
 				List<ForwardCurveInterpolation.Point> forwardPoints = ((ForwardCurveInterpolation)nonDefModel.getForwardRateCurve()).getPoints();
 				myWriter.write("NonDefaultableForwardCurve: " + nonDefModel.getForwardRateCurve().getClass() + "\nTimes=[");
 				for(ForwardCurveInterpolation.Point point: forwardPoints) {
@@ -850,7 +854,7 @@ public class ModelFromSpreadTest extends info.quantlab.debug.Time{
 			myWriter.write("SimulationModel: " + model.getClass() + "\n\n");
 			
 			{
-				LIBORMarketModelFromCovarianceModel nonDefModel = (LIBORMarketModelFromCovarianceModel)((DefaultableLIBORFromSpreadDynamic)model.getModel()).getUndefaultableLIBORModel();
+				LIBORMarketModelFromCovarianceModel nonDefModel = (LIBORMarketModelFromCovarianceModel)((DefaultableLIBORFromSpreadDynamic)model.getModel()).getNonDefaultableLIBORModel();
 				myWriter.write(nonDefModel.toString() + "\n\n");
 				
 			}

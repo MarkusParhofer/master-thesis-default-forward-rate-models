@@ -12,13 +12,13 @@ import net.finmath.stochastic.RandomVariable;
 public interface DefaultableLIBORMarketModel extends LIBORMarketModel, ProcessModel {
 
 	/**
-	 * Returns the underlying model for the undefaultable rate. E.g. Rates through AAA Government Bonds.
-	 * @return the undefaultable model.
+	 * Returns the underlying model for the non-defaultable rate. E.g. Rates through AAA Government Bonds.
+	 * @return the non-defaultable model.
 	 */
-	LIBORMarketModel getUndefaultableLIBORModel();
+	LIBORMarketModel getNonDefaultableLIBORModel();
 	
 	/**
-	 * Gets the drift part of the undefaultable model. This will return an array of size <code>{@link LIBORModel#getNumberOfLibors()}</code>.
+	 * Gets the drift part of the non-defaultable model. This will return an array of size <code>{@link LIBORModel#getNumberOfLibors()}</code>.
 	 * @param process The discretization process generating the whole model. The process provides call backs for 
 	 * 	TimeDiscretization and allows calls to getProcessValue for timeIndices less or equal the given one.
 	 * @param timeIndex The time index (associated with MonteCarloProcess.getTimeDiscretization().
@@ -26,17 +26,17 @@ public interface DefaultableLIBORMarketModel extends LIBORMarketModel, ProcessMo
 	 * @param realizationPredictor The given realization at <code>timeIndex + 1</code> or null if no predictor is available.
 	 * @return the drift vector of the defaultable model assosciated with the realizations given.
 	 */
-	RandomVariable[] getDriftOfUndefaultableModel(MonteCarloProcess process, int timeIndex, RandomVariable[] realizationAtTimeIndex,	RandomVariable[] realizationPredictor);
+	RandomVariable[] getDriftOfNonDefaultableModel(MonteCarloProcess process, int timeIndex, RandomVariable[] realizationAtTimeIndex,	RandomVariable[] realizationPredictor);
 	
 	/**
 	 * Gets the drift part of the defaultable model. This will return an array of size <code>{@link LIBORModel#getNumberOfLibors()}</code>. However the 
-	 * realizations and realizationPredictor must still be an array of double the size, where the first half are the realizations of the undefaultable model, 
+	 * realizations and realizationPredictor must still be an array of double the size, where the first half are the realizations of the non-defaultable model, 
 	 * and the second half are those of the defaultable model.
 	 * @param process The discretization process generating the whole model. The process provides call backs for 
 	 * 	TimeDiscretization and allows calls to getProcessValue for timeIndices less or equal the given one.
 	 * @param timeIndex The time index (associated with MonteCarloProcess.getTimeDiscretization().
 	 * @param realizationAtTimeIndex A vector of the realizations of the whole model. This means the size must be 
-	 * <code>2 * {@link LIBORModel#getNumberOfLibors()}</code>, where the first half are the realizations of the undefaultable, 
+	 * <code>2 * {@link LIBORModel#getNumberOfLibors()}</code>, where the first half are the realizations of the non-defaultable, 
 	 * and the second half are those of the defaultable model.
 	 * @param realizationPredictor The given realization at <code>timeIndex + 1</code> or null if no predictor is available.
 	 * @return the drift vector of the defaultable model assosciated with the realizations given.
@@ -76,10 +76,10 @@ public interface DefaultableLIBORMarketModel extends LIBORMarketModel, ProcessMo
 	 * @return The forward rate of the non-defaultable model.
 	 * @throws CalculationException Thrown if calculation failed.
 	 */
-	RandomVariable getUndefaultableLIBOR(MonteCarloProcess process, int timeIndex, int liborIndex) throws CalculationException;
+	RandomVariable getNonDefaultableLIBOR(MonteCarloProcess process, int timeIndex, int liborIndex) throws CalculationException;
 
 	/**
-	 * Same as {@link #getDefaultableForwardRate(process, time, periodStart, periodEnd)}.
+	 * Same as {@link #getDefaultableForwardRate(MonteCarloProcess, double, double, double)}.
 	 */
 	@Override
 	default RandomVariable getForwardRate(MonteCarloProcess process, double time, double periodStart, double periodEnd) throws CalculationException {
@@ -101,19 +101,19 @@ public interface DefaultableLIBORMarketModel extends LIBORMarketModel, ProcessMo
 	RandomVariable getDefaultableForwardRate(MonteCarloProcess process, double time, double periodStart, double periodEnd) throws CalculationException;
 	
 	/**
-	 * Gets the forward rate asscociated with the underlying undefaultable model.
+	 * Gets the forward rate asscociated with the underlying non-defaultable model.
 	 * 
 	 * @param process The discretization process generating this model.
 	 * @param time The evaluation time.
 	 * @param periodStart The period start of the forward rate.
 	 * @param periodEnd The period end of the forward rate.
-	 * @return The undefaultable forward rate.
+	 * @return The non-defaultable forward rate.
 	 * @throws CalculationException - Thrown if model fails to calculate the random variable.
 	 */
-	RandomVariable getUndefaultableForwardRate(MonteCarloProcess process, double time, double periodStart, double periodEnd) throws CalculationException;
+	RandomVariable getNonDefaultableForwardRate(MonteCarloProcess process, double time, double periodStart, double periodEnd) throws CalculationException;
 	
 	/**
-	 * The number of components. Here this method will return double the number of components of the undefaultable model.
+	 * The number of components. Here this method will return double the number of components of the non-defaultable model.
 	 */
 	@Override
 	int getNumberOfComponents();
@@ -125,7 +125,7 @@ public interface DefaultableLIBORMarketModel extends LIBORMarketModel, ProcessMo
 	int getNumberOfLibors();
 	
 	/**
-	 * Gets the Spread of the LIBOR rate (i.e. the difference between the defaultable and undefaultable rate) at a given time index.
+	 * Gets the Spread of the LIBOR rate (i.e. the difference between the defaultable and non-defaultable rate) at a given time index.
 	 * @param process The simulation of the Model
 	 * @param timeIndex The index of the time for which we get the spread
 	 * @param liborIndex The index of the LIBOR rate to get
@@ -135,7 +135,7 @@ public interface DefaultableLIBORMarketModel extends LIBORMarketModel, ProcessMo
 	RandomVariable getLIBORSpreadAtGivenTimeIndex(MonteCarloProcess process, final int timeIndex, final int liborIndex) throws CalculationException;
 	
 	/**
-	 * Gets the Spread of the LIBOR rate (i.e. the difference between the defaultable and undefaultable rate) at a given time index.
+	 * Gets the Spread of the LIBOR rate (i.e. the difference between the defaultable and non-defaultable rate) at a given time index.
 	 * @param process The simulation of the Model
 	 * @param time The evaluation time for which we get the spread
 	 * @param liborIndex The index of the LIBOR rate to get
@@ -170,22 +170,21 @@ public interface DefaultableLIBORMarketModel extends LIBORMarketModel, ProcessMo
 	RandomVariable getDefaultableNumeraire(final MonteCarloProcess process, final double time) throws CalculationException;
 	
 	/**
-	 * Gets the probability of survival until maturity time, given default has not yet happened at evaluation time. Note that this 
-	 * is a conditional probability conditioned on F<sub>t</sub> <b>and</b> on {&tau; &gt; t}
+	 * Gets the probability of survival until maturity time. Note that this is a conditional probability conditioned
+	 * on not knowing the default state, while knowing the paths of L^d until maturity time.
 	 * @param process The simulation process of the model.
-	 * @param evaluationTime The evaluation time of the probability.
 	 * @param maturity The time until which to get the probability of survival for
 	 * @return The probability of survival
 	 */
-	RandomVariable getSurvivalProbability(MonteCarloProcess process, final double evaluationTime, final double maturity) throws CalculationException;
+	RandomVariable getSurvivalProbability(MonteCarloProcess process, final double maturity) throws CalculationException;
 	
 	/**
-	 * Gets the spread from the defaultable and the undefaultable Forward rates.
+	 * Gets the spread from the defaultable and the non-defaultable Forward rates.
 	 * @param process The simulation of the Model
 	 * @param time The evaluation time for which we get the spread.
 	 * @param periodStart The period start of the forward rate for which to get the spread.
 	 * @param periodEnd The period end of the forward rate for which to get the spread.
-	 * @return The spread between the defaultable and the undefaultable forward rate.
+	 * @return The spread between the defaultable and the non-defaultable forward rate.
 	 * @throws CalculationException - Thrown if model fails to calculate the random variable.
 	 */
 	RandomVariable getSpread(MonteCarloProcess process, double time, double periodStart, double periodEnd) throws CalculationException ;
@@ -194,12 +193,12 @@ public interface DefaultableLIBORMarketModel extends LIBORMarketModel, ProcessMo
 	DefaultableLIBORMarketModel getCloneWithModifiedCovarianceModel(LIBORCovarianceModel newCovarianceModel);
 	
 	/**
-	 * Returns a clone with a modified undefaultable state. This method must implement a way to also use a modified covariance model, 
-	 * where the undefaultable covariance structure has changed.
-	 * @param newUndefaultableModel The new undefaultable model used as basic for this defaultable model.
-	 * @return A clone with a different undefaultable model.
+	 * Returns a clone with a modified non-defaultable state. This method must implement a way to also use a modified covariance model, 
+	 * where the non-defaultable covariance structure has changed.
+	 * @param newNonDefaultableModel The new non-defaultable model used as basic for this defaultable model.
+	 * @return A clone with a different non-defaultable model.
 	 */
-	DefaultableLIBORMarketModel getCloneWithModifiedUndefaultableModel(LIBORMarketModel newUndefaultableModel);
+	DefaultableLIBORMarketModel getCloneWithModifiedNonDefaultableModel(LIBORMarketModel newNonDefaultableModel);
 	
 	
 }

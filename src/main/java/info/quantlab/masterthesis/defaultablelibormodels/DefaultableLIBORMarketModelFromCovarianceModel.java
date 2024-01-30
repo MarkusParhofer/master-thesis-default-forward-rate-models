@@ -22,9 +22,10 @@ import net.finmath.stochastic.Scalar;
 import net.finmath.time.TimeDiscretization;
 
 /**
- * Class that implements a defaultable LIBOR Market Model. As demanded by interface, the model specifies 
- * @author marku
+ * Class that implements a defaultable LIBOR Market Model.
  *
+ * @author Markus Parhofer
+ * @deprecated Class is deprecated. Use DefaultableLIBORFromSpreadDynamic with SimulationModel=LIBORS instead.
  */
 public class DefaultableLIBORMarketModelFromCovarianceModel extends AbstractProcessModel implements DefaultableLIBORMarketModel {
 
@@ -40,7 +41,7 @@ public class DefaultableLIBORMarketModelFromCovarianceModel extends AbstractProc
 	private InterpolationMethod	interpolationMethod	= InterpolationMethod.LOG_LINEAR_UNCORRECTED;
 
 	// Model Specifics
-	private final LIBORMarketModel _undefaultableModel;
+	private final LIBORMarketModel _nonDefaultableModel;
 	private final DefaultableLIBORCovarianceModel _covarianceModel;
 	private final ForwardCurve _forwardRateCurve;
 	private final AnalyticModel _analyticModel;
@@ -59,8 +60,8 @@ public class DefaultableLIBORMarketModelFromCovarianceModel extends AbstractProc
 	
 	// ------------------------------------------------------------------------- Constructors --------------------------------------------------------------------------
 	
-	public DefaultableLIBORMarketModelFromCovarianceModel(LIBORMarketModel undefaultableModel, DefaultableLIBORCovarianceModel covarianceModel, ForwardCurve forwardRateCurve, AnalyticModel analyticModel, Map<String, String> propertyMap) {
-		this(undefaultableModel, covarianceModel, forwardRateCurve, analyticModel);
+	public DefaultableLIBORMarketModelFromCovarianceModel(LIBORMarketModel nonDefaultableModel, DefaultableLIBORCovarianceModel covarianceModel, ForwardCurve forwardRateCurve, AnalyticModel analyticModel, Map<String, String> propertyMap) {
+		this(nonDefaultableModel, covarianceModel, forwardRateCurve, analyticModel);
 		if(propertyMap != null) {
 			Set<String> keys = propertyMap.keySet();
 			for(String key: keys) {
@@ -109,19 +110,19 @@ public class DefaultableLIBORMarketModelFromCovarianceModel extends AbstractProc
 		}
 	}
 
-	public DefaultableLIBORMarketModelFromCovarianceModel(LIBORMarketModel undefaultableModel, DefaultableLIBORCovarianceModel covarianceModel, ForwardCurve forwardRateCurve, Map<String, String> propertyMap) {
-		this(undefaultableModel, covarianceModel, forwardRateCurve, null, propertyMap);
+	public DefaultableLIBORMarketModelFromCovarianceModel(LIBORMarketModel nonDefaultableModel, DefaultableLIBORCovarianceModel covarianceModel, ForwardCurve forwardRateCurve, Map<String, String> propertyMap) {
+		this(nonDefaultableModel, covarianceModel, forwardRateCurve, null, propertyMap);
 	}
 
-	public DefaultableLIBORMarketModelFromCovarianceModel(LIBORMarketModel undefaultableModel, DefaultableLIBORCovarianceModel covarianceModel, ForwardCurve forwardRateCurve, AnalyticModel analyticModel) {
-		_undefaultableModel = undefaultableModel;
+	public DefaultableLIBORMarketModelFromCovarianceModel(LIBORMarketModel nonDefaultableModel, DefaultableLIBORCovarianceModel covarianceModel, ForwardCurve forwardRateCurve, AnalyticModel analyticModel) {
+		_nonDefaultableModel = nonDefaultableModel;
 		_covarianceModel = covarianceModel;
 		_forwardRateCurve = forwardRateCurve;
 		_analyticModel = analyticModel;
 	}
 
-	public DefaultableLIBORMarketModelFromCovarianceModel(LIBORMarketModel undefaultableModel, DefaultableLIBORCovarianceModel covarianceModel, ForwardCurve forwardRateCurve) {
-		this(undefaultableModel, covarianceModel, forwardRateCurve, null, null);
+	public DefaultableLIBORMarketModelFromCovarianceModel(LIBORMarketModel nonDefaultableModel, DefaultableLIBORCovarianceModel covarianceModel, ForwardCurve forwardRateCurve) {
+		this(nonDefaultableModel, covarianceModel, forwardRateCurve, null, null);
 	}
 	
 	
@@ -146,7 +147,7 @@ public class DefaultableLIBORMarketModelFromCovarianceModel extends AbstractProc
 
 	@Override
 	public TimeDiscretization getLiborPeriodDiscretization() {
-		return getUndefaultableLIBORModel().getLiborPeriodDiscretization();
+		return getNonDefaultableLIBORModel().getLiborPeriodDiscretization();
 	}
 
 	@Override
@@ -156,7 +157,7 @@ public class DefaultableLIBORMarketModelFromCovarianceModel extends AbstractProc
 
 	@Override
 	public DiscountCurve getDiscountCurve() {
-		return getUndefaultableLIBORModel().getDiscountCurve();
+		return getNonDefaultableLIBORModel().getDiscountCurve();
 	}
 
 	/**
@@ -168,8 +169,8 @@ public class DefaultableLIBORMarketModelFromCovarianceModel extends AbstractProc
 	}
 
 	@Override
-	public LIBORMarketModel getUndefaultableLIBORModel() {
-		return _undefaultableModel;
+	public LIBORMarketModel getNonDefaultableLIBORModel() {
+		return _nonDefaultableModel;
 	}
 
 	@Override
@@ -203,14 +204,14 @@ public class DefaultableLIBORMarketModelFromCovarianceModel extends AbstractProc
 	@Override
 	public double getLiborPeriod(int componentIndex) {
 		if(componentIndex > getNumberOfLIBORPeriods())
-			return getUndefaultableLIBORModel().getLiborPeriod(componentIndex - getNumberOfLIBORPeriods());
+			return getNonDefaultableLIBORModel().getLiborPeriod(componentIndex - getNumberOfLIBORPeriods());
 		else
-			return getUndefaultableLIBORModel().getLiborPeriod(componentIndex);
+			return getNonDefaultableLIBORModel().getLiborPeriod(componentIndex);
 	}
 
 	@Override
 	public int getLiborPeriodIndex(double time) {
-		return getUndefaultableLIBORModel().getLiborPeriodIndex(time);
+		return getNonDefaultableLIBORModel().getLiborPeriodIndex(time);
 	}
 
 	public int getDefaultableComponentIndex(int liborIndex) {
@@ -229,7 +230,7 @@ public class DefaultableLIBORMarketModelFromCovarianceModel extends AbstractProc
 			initialStatesD[liborIndex] = (stateSpace == StateSpace.LOGNORMAL) ? Math.log(Math.max(rate,0)) : rate;
 		}
 
-		final RandomVariable[] initialStateRV = Arrays.copyOf(getUndefaultableLIBORModel().getInitialState(null), getNumberOfComponents());
+		final RandomVariable[] initialStateRV = Arrays.copyOf(getNonDefaultableLIBORModel().getInitialState(null), getNumberOfComponents());
 		for(int liborIndex = 0; liborIndex < getNumberOfLIBORPeriods(); liborIndex++) {
 			initialStateRV[getDefaultableComponentIndex(liborIndex)] = getRandomVariableForConstant(initialStatesD[liborIndex]);
 		}
@@ -238,7 +239,7 @@ public class DefaultableLIBORMarketModelFromCovarianceModel extends AbstractProc
 
 	@Override
 	public RandomVariable[] getDrift(MonteCarloProcess process, int timeIndex, RandomVariable[] realizationAtTimeIndex,	RandomVariable[] realizationPredictor) {
-		RandomVariable[] fullDriftVector = Arrays.copyOf(getDriftOfUndefaultableModel(process, timeIndex, realizationAtTimeIndex, realizationPredictor), getNumberOfComponents());
+		RandomVariable[] fullDriftVector = Arrays.copyOf(getDriftOfNonDefaultableModel(process, timeIndex, realizationAtTimeIndex, realizationPredictor), getNumberOfComponents());
 		RandomVariable[] defaultableDrift = getDriftOfDefaultableModel(process, timeIndex, realizationAtTimeIndex, realizationPredictor);
 		for(int i=getNumberOfLIBORPeriods(); i < getNumberOfComponents(); i++) {
 			fullDriftVector[i] = defaultableDrift[i - getNumberOfLIBORPeriods()];
@@ -247,16 +248,16 @@ public class DefaultableLIBORMarketModelFromCovarianceModel extends AbstractProc
 	}
 
 	@Override
-	public RandomVariable[] getDriftOfUndefaultableModel(MonteCarloProcess process, int timeIndex, RandomVariable[] realizationAtTimeIndex, RandomVariable[] realizationPredictor) {
+	public RandomVariable[] getDriftOfNonDefaultableModel(MonteCarloProcess process, int timeIndex, RandomVariable[] realizationAtTimeIndex, RandomVariable[] realizationPredictor) {
 		RandomVariable[] sRealization = null;
 		if(realizationAtTimeIndex != null) {
-			sRealization = Arrays.copyOf(realizationAtTimeIndex, getUndefaultableLIBORModel().getNumberOfComponents());
+			sRealization = Arrays.copyOf(realizationAtTimeIndex, getNonDefaultableLIBORModel().getNumberOfComponents());
 		}
 		RandomVariable[] sRealizationPredictor = null; 
 		if(realizationPredictor != null) {
-			sRealizationPredictor = Arrays.copyOf(realizationPredictor, getUndefaultableLIBORModel().getNumberOfComponents());
+			sRealizationPredictor = Arrays.copyOf(realizationPredictor, getNonDefaultableLIBORModel().getNumberOfComponents());
 		}
-		return getUndefaultableLIBORModel().getDrift(getUndefaultableProcess(process), timeIndex, sRealization, sRealizationPredictor);
+		return getNonDefaultableLIBORModel().getDrift(getNonDefaultableProcess(process), timeIndex, sRealization, sRealizationPredictor);
 	}
 
 	@Override
@@ -340,7 +341,7 @@ public class DefaultableLIBORMarketModelFromCovarianceModel extends AbstractProc
 	@Override
 	public RandomVariable applyStateSpaceTransform(MonteCarloProcess process, int timeIndex, int componentIndex, RandomVariable randomVariable) {
 		if(componentIndex < getNumberOfLIBORPeriods()) {
-			return getUndefaultableLIBORModel().applyStateSpaceTransform(getUndefaultableProcess(process), timeIndex, componentIndex, randomVariable);
+			return getNonDefaultableLIBORModel().applyStateSpaceTransform(getNonDefaultableProcess(process), timeIndex, componentIndex, randomVariable);
 		}
 		
 		RandomVariable value = randomVariable;
@@ -359,7 +360,7 @@ public class DefaultableLIBORMarketModelFromCovarianceModel extends AbstractProc
 	@Override
 	public RandomVariable applyStateSpaceTransformInverse(final MonteCarloProcess process, final int timeIndex, final int componentIndex, final RandomVariable randomVariable) {
 		if(componentIndex < getNumberOfLIBORPeriods()) {
-			return getUndefaultableLIBORModel().applyStateSpaceTransformInverse(getUndefaultableProcess(process), timeIndex, componentIndex, randomVariable);
+			return getNonDefaultableLIBORModel().applyStateSpaceTransformInverse(getNonDefaultableProcess(process), timeIndex, componentIndex, randomVariable);
 		}
 		
 		RandomVariable value = randomVariable;
@@ -463,20 +464,20 @@ public class DefaultableLIBORMarketModelFromCovarianceModel extends AbstractProc
 	}
 	
 	@Override
-	public RandomVariable getUndefaultableLIBOR(MonteCarloProcess process, int timeIndex, int liborIndex) throws CalculationException {
+	public RandomVariable getNonDefaultableLIBOR(MonteCarloProcess process, int timeIndex, int liborIndex) throws CalculationException {
 		if(timeIndex == 0 || getLiborPeriod(liborIndex) == 0d)
-			return getRandomVariableForConstant(getUndefaultableLIBORModel().getForwardRateCurve().getForward(_analyticModel, liborIndex));
+			return getRandomVariableForConstant(getNonDefaultableLIBORModel().getForwardRateCurve().getForward(_analyticModel, liborIndex));
 		return process.getProcessValue(timeIndex, liborIndex);
 	}
 
 	@Override
-	public RandomVariable getUndefaultableForwardRate(MonteCarloProcess process, double time, double periodStart, double periodEnd) throws CalculationException {
-		return getUndefaultableLIBORModel().getForwardRate(getUndefaultableProcess(process), time, periodStart, periodEnd);
+	public RandomVariable getNonDefaultableForwardRate(MonteCarloProcess process, double time, double periodStart, double periodEnd) throws CalculationException {
+		return getNonDefaultableLIBORModel().getForwardRate(getNonDefaultableProcess(process), time, periodStart, periodEnd);
 	}
 
 	@Override
 	public RandomVariable getForwardDiscountBond(MonteCarloProcess process, final double time, final double maturity) throws CalculationException {
-		return getUndefaultableLIBORModel().getForwardDiscountBond(getUndefaultableProcess(process), time, maturity);
+		return getNonDefaultableLIBORModel().getForwardDiscountBond(getNonDefaultableProcess(process), time, maturity);
 	}
 	
 	
@@ -486,18 +487,21 @@ public class DefaultableLIBORMarketModelFromCovarianceModel extends AbstractProc
 	@Override
 	public RandomVariable getLIBORSpreadAtGivenTimeIndex(MonteCarloProcess process, int timeIndex, int liborIndex) throws CalculationException {
 		final RandomVariable defLIBOR = getLIBOR(process, timeIndex, liborIndex);
-		final RandomVariable nonDefLIBOR = getUndefaultableLIBOR(process, timeIndex, liborIndex);
+		final RandomVariable nonDefLIBOR = getNonDefaultableLIBOR(process, timeIndex, liborIndex);
 		return defLIBOR.sub(nonDefLIBOR);
 	}
 	
 	@Override
 	public RandomVariable getSpread(MonteCarloProcess process, double time, double periodStart, double periodEnd) throws CalculationException {
-		return getForwardRate(process, time, periodStart, periodEnd).sub(getUndefaultableForwardRate(process, time, periodStart, periodEnd));
+		return getForwardRate(process, time, periodStart, periodEnd).sub(getNonDefaultableForwardRate(process, time, periodStart, periodEnd));
 	}
 
 	@Override
-	public RandomVariable getSurvivalProbability(MonteCarloProcess process, double evaluationTime, double maturity) throws CalculationException {
-		return getDefaultableBond(process, evaluationTime, maturity).div(getForwardDiscountBond(process, evaluationTime, maturity));
+	public RandomVariable getSurvivalProbability(MonteCarloProcess process, double maturity) throws CalculationException {
+
+		RandomVariable defNumeraire = getDefaultableNumeraire(process, maturity);
+		RandomVariable numeraire = getNumeraire(process, maturity);
+		return numeraire.div(defNumeraire);
 	}
 
 	
@@ -505,7 +509,7 @@ public class DefaultableLIBORMarketModelFromCovarianceModel extends AbstractProc
 	// -------------------------------------------------------------------- Clones --------------------------------------------------------------------
 	
 	@Override
-	public DefaultableLIBORMarketModelFromCovarianceModel getCloneWithModifiedUndefaultableModel(LIBORMarketModel newUndefaultableModel) {
+	public DefaultableLIBORMarketModelFromCovarianceModel getCloneWithModifiedNonDefaultableModel(LIBORMarketModel newNonDefaultableModel) {
 		Map<String, String> propertyMap = new HashMap<String, String>();
 		propertyMap.put("measure", measure.toString());
 		propertyMap.put("statespace", stateSpace.toString());
@@ -513,10 +517,10 @@ public class DefaultableLIBORMarketModelFromCovarianceModel extends AbstractProc
 		propertyMap.put("interpolationmethod", interpolationMethod.toString());
 		
 		DefaultableLIBORCovarianceModel newCovarianceModel = getCovarianceModel();
-		if(newUndefaultableModel.getCovarianceModel() != newCovarianceModel.getNonDefaultableCovarianceModel()) {
-			newCovarianceModel = newCovarianceModel.getCloneWithModifiedNonDefaultableCovariance(newUndefaultableModel.getCovarianceModel());
+		if(newNonDefaultableModel.getCovarianceModel() != newCovarianceModel.getNonDefaultableCovarianceModel()) {
+			newCovarianceModel = newCovarianceModel.getCloneWithModifiedNonDefaultableCovariance(newNonDefaultableModel.getCovarianceModel());
 		}
-		return new DefaultableLIBORMarketModelFromCovarianceModel(newUndefaultableModel, newCovarianceModel, getForwardRateCurve(), getAnalyticModel(), propertyMap);
+		return new DefaultableLIBORMarketModelFromCovarianceModel(newNonDefaultableModel, newCovarianceModel, getForwardRateCurve(), getAnalyticModel(), propertyMap);
 	}
 
 	@Override
@@ -530,12 +534,12 @@ public class DefaultableLIBORMarketModelFromCovarianceModel extends AbstractProc
 		if(!(newCovarianceModel instanceof DefaultableLIBORCovarianceModel)) {
 			throw new IllegalArgumentException("newCovarianceModel must be of type DefaultableLIBORCovarianceModel!");
 		}
-		return new DefaultableLIBORMarketModelFromCovarianceModel(getUndefaultableLIBORModel(), (DefaultableLIBORCovarianceModel)newCovarianceModel, getForwardRateCurve(), getAnalyticModel(), propertyMap);
+		return new DefaultableLIBORMarketModelFromCovarianceModel(getNonDefaultableLIBORModel(), (DefaultableLIBORCovarianceModel)newCovarianceModel, getForwardRateCurve(), getAnalyticModel(), propertyMap);
 	}
 
 	@Override
 	public DefaultableLIBORMarketModelFromCovarianceModel getCloneWithModifiedData(Map<String, Object> dataModified) throws CalculationException {
-		LIBORMarketModel undefaultableModel = (LIBORMarketModel)dataModified.getOrDefault("undefaultableModel", getUndefaultableLIBORModel());
+		LIBORMarketModel nonDefaultableModel = (LIBORMarketModel)dataModified.getOrDefault("nonDefaultableModel", getNonDefaultableLIBORModel());
 		DefaultableLIBORCovarianceModel covarianceModel = (DefaultableLIBORCovarianceModel)dataModified.getOrDefault("covarianceModel", getCovarianceModel());
 		ForwardCurve forwardRateCurve = (ForwardCurve)dataModified.getOrDefault("forwardRateCurve", getForwardRateCurve());
 		AnalyticModel analyticModel = (AnalyticModel)dataModified.getOrDefault("analyticModel", getAnalyticModel());
@@ -562,7 +566,7 @@ public class DefaultableLIBORMarketModelFromCovarianceModel extends AbstractProc
 				break;
 			}
 		}
-		return new DefaultableLIBORMarketModelFromCovarianceModel(undefaultableModel, covarianceModel, forwardRateCurve, analyticModel, propertyMap);
+		return new DefaultableLIBORMarketModelFromCovarianceModel(nonDefaultableModel, covarianceModel, forwardRateCurve, analyticModel, propertyMap);
 	}
 	
 	
@@ -656,7 +660,7 @@ public class DefaultableLIBORMarketModelFromCovarianceModel extends AbstractProc
 
 	@Override
 	public RandomVariable getNumeraire(MonteCarloProcess process, double time) throws CalculationException {
-		return getUndefaultableLIBORModel().getNumeraire(getUndefaultableProcess(process), time);
+		return getNonDefaultableLIBORModel().getNumeraire(getNonDefaultableProcess(process), time);
 	}
 	
 	public RandomVariable getDefaultableNumeraire(final MonteCarloProcess process, final double time) throws CalculationException {
@@ -759,19 +763,19 @@ public class DefaultableLIBORMarketModelFromCovarianceModel extends AbstractProc
 	
 	@Override
 	public LocalDateTime getReferenceDate() {
-		return getUndefaultableLIBORModel().getReferenceDate();
+		return getNonDefaultableLIBORModel().getReferenceDate();
 	}
 
 	@Override
 	public RandomVariable getRandomVariableForConstant(double value) {
-		return getUndefaultableLIBORModel().getRandomVariableForConstant(value);
+		return getNonDefaultableLIBORModel().getRandomVariableForConstant(value);
 	}
 
 	
 	
 	// -------------------------------------------------------------------- Private Methods: --------------------------------------------------------------------------
 
-	private MonteCarloProcess getUndefaultableProcess(MonteCarloProcess fullProcess) {
+	private MonteCarloProcess getNonDefaultableProcess(MonteCarloProcess fullProcess) {
 		if(fullProcess == null)
 			return null;
 		return FunctionsOnMCProcess.getComponentReducedMCProcess(fullProcess, 0, getNumberOfLIBORPeriods() - 1);
@@ -920,7 +924,7 @@ public class DefaultableLIBORMarketModelFromCovarianceModel extends AbstractProc
 		
 		for(int liborIndexForRealization = 0; liborIndexForRealization < getNumberOfLIBORPeriods(); liborIndexForRealization++)
 		{
-			realizationsForFL[liborIndexForRealization] = getUndefaultableLIBOR(process, 0, liborIndexForRealization);
+			realizationsForFL[liborIndexForRealization] = getNonDefaultableLIBOR(process, 0, liborIndexForRealization);
 			realizationsForFL[getDefaultableComponentIndex(liborIndexForRealization)] = getLIBOR(process, 0, liborIndexForRealization);
 			
 			realizationsAtZero[liborIndexForRealization] = getLIBOR(process, 0, liborIndexForRealization);
@@ -951,7 +955,7 @@ public class DefaultableLIBORMarketModelFromCovarianceModel extends AbstractProc
 				{
 					evaluationTimeIndexForRealizations = - evaluationTimeIndexForRealizations - 2;
 				}
-				realizationsForFL[liborIndexForRealization] = getUndefaultableLIBOR(process, evaluationTimeIndexForRealizations, liborIndexForRealization);
+				realizationsForFL[liborIndexForRealization] = getNonDefaultableLIBOR(process, evaluationTimeIndexForRealizations, liborIndexForRealization);
 				realizationsForFL[getDefaultableComponentIndex(liborIndexForRealization)] = getLIBOR(process, evaluationTimeIndexForRealizations, liborIndexForRealization);
 				
 				realizationsAtTimeIndex[liborIndexForRealization] = getLIBOR(process, evaluationTimeIndexForRealizations, liborIndexForRealization);

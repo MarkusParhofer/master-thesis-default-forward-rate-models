@@ -55,9 +55,7 @@ public class DefaultableLIBORCovarianceWithGuaranteedPositiveSpread extends Abst
 		// Parameters of free Parameter Matrix
 		for(int row=0; row < _freeParameterMatrix.length; row++) {
 			final int plusIndex = row * _freeParameterMatrix[0].length;
-			for(int col = 0; col < _freeParameterMatrix[0].length; col++) {
-				allParams[plusIndex + col] = _freeParameterMatrix[row][col];
-			}
+            System.arraycopy(_freeParameterMatrix[row], 0, allParams, plusIndex, _freeParameterMatrix[0].length);
 		}
 		
 		return allParams;
@@ -81,9 +79,7 @@ public class DefaultableLIBORCovarianceWithGuaranteedPositiveSpread extends Abst
 		
 		for(int row=0; row < _freeParameterMatrix.length; row++) {
 			final int plusLength = row * _freeParameterMatrix[0].length;
-			for(int col=0; col < _freeParameterMatrix[0].length; col++) {
-				newFreeParameterMatrix[row][col] = parameters[plusLength + col];
-			}
+            System.arraycopy(parameters, plusLength, newFreeParameterMatrix[row], 0, _freeParameterMatrix[0].length);
 		}
 		return new DefaultableLIBORCovarianceWithGuaranteedPositiveSpread(getNonDefaultableCovarianceModel(), newFreeParameterMatrix);
 	}
@@ -112,7 +108,7 @@ public class DefaultableLIBORCovarianceWithGuaranteedPositiveSpread extends Abst
 	@Override
 	public RandomVariable[] getFactorLoading(int timeIndex, int component, RandomVariable[] realizationAtTimeIndex, RandomVariable[] undefaultableRealization) {
 
-		RandomVariable[] undefaultableFactorLoading = getUndefaultableFactorLoading(timeIndex, component, undefaultableRealization);
+		RandomVariable[] undefaultableFactorLoading = getNonDefaultableFactorLoading(timeIndex, component, undefaultableRealization);
 		
 		if(component < getNumberOfLIBORPeriods()) {
 			return undefaultableFactorLoading;
@@ -123,7 +119,7 @@ public class DefaultableLIBORCovarianceWithGuaranteedPositiveSpread extends Abst
 	@Override
 	public RandomVariable[] getFactorLoading(int timeIndex, int component, RandomVariable[] realizationAtTimeIndex) {
 		final int liborPeriodIndex = getLIBORIndexFromComponent(component);
-		RandomVariable[] undefaultableFactorLoading = getUndefaultableFactorLoading(timeIndex, liborPeriodIndex, Arrays.copyOf(realizationAtTimeIndex, getNumberOfLIBORPeriods()));
+		RandomVariable[] undefaultableFactorLoading = getNonDefaultableFactorLoading(timeIndex, liborPeriodIndex, Arrays.copyOf(realizationAtTimeIndex, getNumberOfLIBORPeriods()));
 		
 		if(component < getNumberOfLIBORPeriods()) {
 			return undefaultableFactorLoading;
@@ -159,7 +155,7 @@ public class DefaultableLIBORCovarianceWithGuaranteedPositiveSpread extends Abst
 		return factorLoading;
 	}
 	
-	private RandomVariable[] getUndefaultableFactorLoading(int timeIndex, int liborPeriodIndex, RandomVariable[] undefaultableRealization) {
+	private RandomVariable[] getNonDefaultableFactorLoading(int timeIndex, int liborPeriodIndex, RandomVariable[] undefaultableRealization) {
 		// Return undefaultable Factor Loadings with higher number of Factors. Set extra factors to zero.
 		
 		final RandomVariable[] undefaultableFactorLoading = getNonDefaultableCovarianceModel().getFactorLoading(timeIndex, liborPeriodIndex, undefaultableRealization);
@@ -180,7 +176,7 @@ public class DefaultableLIBORCovarianceWithGuaranteedPositiveSpread extends Abst
 		
 		if(getTimeDiscretization().getTime(timeIndex) >= getLiborPeriodDiscretization().getTime(liborPeriodIndex))
 			return getZeroFactorLoading();
-		final RandomVariable[] allFactorLoadings = getUndefaultableFactorLoading(timeIndex, liborPeriodIndex, Arrays.copyOf(realizationAtTimeIndex, getNumberOfLIBORPeriods()));
+		final RandomVariable[] allFactorLoadings = getNonDefaultableFactorLoading(timeIndex, liborPeriodIndex, Arrays.copyOf(realizationAtTimeIndex, getNumberOfLIBORPeriods()));
 		
 		final int nonDefNumberOfFactors = getNonDefaultableCovarianceModel().getNumberOfFactors();
 		for(int k = 0; k < nonDefNumberOfFactors; k++) {

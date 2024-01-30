@@ -39,7 +39,7 @@ public class DefaultableCouponBond extends AbstractSellerDefaultableTermStructur
 			}
 			// Adjust for possibility of default between evaluationTime and paymentDate:
 			if(model.getModel() instanceof DefaultableLIBORMarketModel defaultableModel) {
-				payoff = payoff.mult(defaultableModel.getSurvivalProbability(model.getProcess(), evaluationTime, _paymentTenor.getTime(i)));
+				payoff = payoff.mult(defaultableModel.getSurvivalProbability(model.getProcess(), _paymentTenor.getTime(i)));
 			}
 			
 			payoff = payoff.div(numeraire).mult(monteCarloWeights);

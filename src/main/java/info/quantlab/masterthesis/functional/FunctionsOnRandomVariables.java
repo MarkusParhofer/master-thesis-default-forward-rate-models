@@ -1,6 +1,7 @@
 package info.quantlab.masterthesis.functional;
 
 import info.quantlab.debug.Debug;
+import net.finmath.opencl.montecarlo.RandomVariableOpenCL;
 import net.finmath.stochastic.RandomVariable;
 
 public class FunctionsOnRandomVariables {
@@ -19,9 +20,17 @@ public class FunctionsOnRandomVariables {
 		}
 			
 		int path = 0;
-		while((path < rv.size()) && !(rv.get(path) == value))
-			path++;
-		return path == rv.size() ? -1 : path - 1;
+		if(rv instanceof RandomVariableOpenCL rvOC) {
+			double[] rvO = rvOC.getRealizations();
+			while ((path < rvO.length) && !(rvO[path] == value))
+				path++;
+			path = path == rvO.length ? -1 : path;
+		} else {
+			while ((path < rv.size()) && !(rv.get(path) == value))
+				path++;
+			path = path == rv.size() ? -1 : path;
+		}
+		return path;
 	}
 
 	public static int findNaNPath(RandomVariable rv) {
