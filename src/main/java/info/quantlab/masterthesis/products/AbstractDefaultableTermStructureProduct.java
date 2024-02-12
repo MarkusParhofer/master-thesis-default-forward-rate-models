@@ -15,4 +15,5 @@ public abstract class AbstractDefaultableTermStructureProduct extends AbstractTe
 		super(currency);
 	}
 
+
 }

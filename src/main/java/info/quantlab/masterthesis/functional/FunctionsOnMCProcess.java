@@ -34,7 +34,7 @@ public class FunctionsOnMCProcess {
 	 * @param lastComponent The last component to include in the new process (inclusive).
 	 * @param newNumberOfFactors The number of factors, that the new process has. Will be cancelled in a future version.
 	 * @return A component reduced MonteCarloProcess on the basis of the original process.
-	 * @deprecated Use {@link #getComponentReducedMCProcess(process, firstComponent, lastComponent)} instead. 
+	 * @deprecated Use {@link #getComponentReducedMCProcess(MonteCarloProcess, int, int)} instead.
 	 * A new number of Factors is no longer supported.
 	 */
 	@Deprecated
@@ -64,7 +64,7 @@ public class FunctionsOnMCProcess {
 
 			@Override
 			public int getNumberOfComponents() {
-				return firstComponent - lastComponent + 1;
+				return lastComponent - firstComponent + 1;
 			}
 
 			@Override
@@ -160,6 +160,11 @@ public class FunctionsOnMCProcess {
 			@Override
 			public RandomVariable getProcessValue(int timeIndex, int componentIndex) throws CalculationException {
 				return getResponsibleProcess(componentIndex).getProcessValue(timeIndex, getOriginalIndex(componentIndex));
+			}
+
+			@Override
+			public RandomVariable[] getProcessValue(int tmeIndex) throws CalculationException {
+				throw new CalculationException("Tried something we should not do!");
 			}
 
 			/**

@@ -105,6 +105,13 @@ public class EasyPlot2D extends Plot2D {
 		update();
 		return this;
 	}
+
+	public EasyPlot2D addPlot(final List<Plotable2D> newPlotables) {
+		Stream<Plotable2D> stringStream = Stream.concat(plotables.stream(), newPlotables.stream());
+		plotables = stringStream.collect(Collectors.toList());
+		update();
+		return this;
+	}
 	
 	public EasyPlot2D addPlot(final double xmin, final double xmax, final int numberOfPointsX, final Named<DoubleUnaryOperator> function, final GraphStyle style) {
 		return addPlot(new PlotableFunction2D(xmin, xmax, numberOfPointsX, function, style));
@@ -112,6 +119,12 @@ public class EasyPlot2D extends Plot2D {
 	
 	public EasyPlot2D addPlot(final double xmin, final double xmax, final int numberOfPointsX, final Named<DoubleUnaryOperator> function) {
 		return addPlot(new PlotableFunction2D(xmin, xmax, numberOfPointsX, function, getDefaultGraphStyle(plotables.size(), true, unstaticDrawingSupplier)));
+	}
+
+	public EasyPlot2D addPlot(final double xmin, final double xmax, final int numberOfPointsX, List<Named<DoubleUnaryOperator>> functions) {
+		List<Plotable2D> newPlots = functions.stream().map(operator -> (Plotable2D) (new PlotableFunction2D(
+				xmin, xmax, numberOfPointsX, operator, getDefaultGraphStyle(functions.indexOf(operator), true, unstaticDrawingSupplier)))).toList();
+		return addPlot(newPlots);
 	}
 	
 	@Override
@@ -152,7 +165,11 @@ public class EasyPlot2D extends Plot2D {
 		update();
 		return returnStyle;
 	}
-	
+
+	public int getNumberOfPlots() {
+		return plotables.size();
+	}
+
 	public Color changePlotColor(final int plotIndex, final Color newColor) {
 		
 		Plotable2D plotToChange = plotables.get(plotIndex);

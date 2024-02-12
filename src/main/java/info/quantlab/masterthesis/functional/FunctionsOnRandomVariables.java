@@ -33,6 +33,29 @@ public class FunctionsOnRandomVariables {
 		return path;
 	}
 
+	public static int findFirstNegativePath(RandomVariable rv) {
+		if(rv.isDeterministic() && rv.doubleValue() < 0.0) {
+			// Debug.logln("Value is deterministic value of RV!");
+			return 0;
+		} else if(rv.isDeterministic()) {
+			// Debug.logln("Value is deterministic value of RV!");
+			return -1;
+		}
+
+		int path = 0;
+		if(rv instanceof RandomVariableOpenCL rvOC) {
+			double[] rvO = rvOC.getRealizations();
+			while ((path < rvO.length) && !(rvO[path] < 0.0))
+				path++;
+			path = path == rvO.length ? -1 : path;
+		} else {
+			while ((path < rv.size()) && !(rv.get(path) < 0.0))
+				path++;
+			path = path == rv.size() ? -1 : path;
+		}
+		return path;
+	}
+
 	public static int findNaNPath(RandomVariable rv) {
 		if(!Double.isNaN(rv.getAverage()))
 			return -1;
