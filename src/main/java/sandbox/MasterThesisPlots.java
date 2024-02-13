@@ -8,12 +8,15 @@ import info.quantlab.masterthesis.factory.DefaultableLIBORModelFactory;
 import info.quantlab.masterthesis.functional.FunctionsOnRandomVariables;
 import info.quantlab.masterthesis.multilibormodels.MultiLIBORVectorModel;
 import info.quantlab.masterthesis.process.MilsteinSchemeFiniteDifference;
+import info.quantlab.masterthesis.products.DefaultableCouponBondForward;
 import net.finmath.exception.CalculationException;
 import net.finmath.montecarlo.BrownianMotion;
 import net.finmath.montecarlo.BrownianMotionFromMersenneRandomNumbers;
 import net.finmath.montecarlo.RandomVariableFromDoubleArray;
 import net.finmath.montecarlo.assetderivativevaluation.models.BlackScholesModel;
 import net.finmath.montecarlo.interestrate.LIBORMarketModel;
+import net.finmath.montecarlo.interestrate.LIBORModelMonteCarloSimulationModel;
+import net.finmath.montecarlo.interestrate.LIBORMonteCarloSimulationFromLIBORModel;
 import net.finmath.montecarlo.process.EulerSchemeFromProcessModel;
 import net.finmath.montecarlo.process.MonteCarloProcess;
 import net.finmath.plots.GraphStyle;
@@ -26,11 +29,12 @@ import java.awt.*;
 import java.awt.geom.Ellipse2D;
 import java.io.File;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
 @SuppressWarnings("unused")
-public class MasterThesisPlots {
+public class MasterThesisPlots extends Time {
 
 
     public static void main(String[] args) throws CalculationException {
@@ -183,7 +187,7 @@ public class MasterThesisPlots {
         properties.put("simulationModel", "SPREADS");
         properties.put("stateSpaceOfSpread", "LOGNORMAL");
         properties.put("freeParamsSeed", 2000);
-        properties.put("freeParamsRange", 0.3);
+        properties.put("freeParamsRange", 0.4);
         factory.setProperties(properties);
 
         DefaultableLIBORMarketModel modelCreditor = factory.createDefaultableModel(base);
@@ -210,61 +214,42 @@ public class MasterThesisPlots {
         factory.setProperties(properties);
 
         MonteCarloProcess process = factory.createNumericalScheme(multiModel);
+        MonteCarloProcess secProcess = factory.createNumericalScheme(modelDebtor);
 
-        PlotFactory.ProcessOperator pOP_nonDef = (_process, timeIndex, component) -> new Scalar(multiModel.getNonDefaultableLIBOR(_process, timeIndex, component).getAverage());
-
-        final PlotFactory.PathNamer namer = (ind) -> "L(t;T" + subscript(ind) + ",T" + subscript(ind+1) + ")";
-        Time.tic();
-        EasyPlot2D plotNonDef = PlotFactory.PlotProcessPaths(pOP_nonDef, process, 0, 1, 1, 0.0, base.getLiborPeriod(19), (ind)->namer.apply(0));
-        for(int i=1; i < base.getNumberOfComponents(); i++) {
-            final int comp = i;
-            PlotFactory.PlotProcessPaths(plotNonDef, pOP_nonDef, process, i, 1, 1, 0.0, base.getLiborPeriod(19), (ind)->namer.apply(comp));
-        }
-        for(int i = 0; i < plotNonDef.getNumberOfPlots(); i++) {
-            //plotNonDef.changePlotMarker(i, null);
-        }
-        plotNonDef.setTitle("Non defaultable LIBOR rates");
-        plotNonDef.setYAxisLabel("L(t)");
-        plotNonDef.setXAxisLabel("t");
-        plotNonDef.show();
-        Time.toc();
-        PlotFactory.ProcessOperator pOP_Cred = (_process, timeIndex, component) -> new Scalar(multiModel.getDefaultableLIBOR(_process, timeIndex, component, 0).getAverage());
-
-        EasyPlot2D plotCreditor = PlotFactory.PlotProcessPaths(pOP_Cred, process, 0, 1, 1, 0.0, base.getLiborPeriod(19), (ind)-> namer.apply(0));
-        for(int i=1; i < base.getNumberOfComponents(); i++) {
-            final int comp = i;
-            PlotFactory.PlotProcessPaths(plotCreditor, pOP_Cred, process, i, 1, 1, 0.0, base.getLiborPeriod(19), (ind)->namer.apply(comp));
-        }
-        for(int i = 0; i < plotCreditor.getNumberOfPlots(); i++) {
-            //plotCreditor.changePlotMarker(i, null);
-        }
-        plotCreditor.setTitle("Creditor defaultable LIBOR rates");
-        plotCreditor.setYAxisLabel("L^d(t)");
-        plotCreditor.setXAxisLabel("t");
-        plotCreditor.show();
-
-        PlotFactory.ProcessOperator pOP_Deb = (_process, timeIndex, component) -> new Scalar(multiModel.getDefaultableLIBOR(_process, timeIndex, component, 1).getAverage());
-
-        EasyPlot2D plotDebtor = PlotFactory.PlotProcessPaths(pOP_Deb, process, 0, 1, 1, 0.0, base.getLiborPeriod(19), (ind)-> namer.apply(0));
-        for(int i=1; i < base.getNumberOfComponents(); i++) {
-            final int comp = i;
-            PlotFactory.PlotProcessPaths(plotDebtor, pOP_Cred, process, i, 1, 1, 0.0, base.getLiborPeriod(19), (ind)->namer.apply(comp));
-        }
-        for(int i = 0; i < plotDebtor.getNumberOfPlots(); i++) {
-            //plotDebtor.changePlotMarker(i, null);
-        }
-        plotDebtor.setTitle("Debtor defaultable LIBOR rates");
-        plotDebtor.setYAxisLabel("L^d(t)");
-        plotDebtor.setXAxisLabel("t");
-        plotDebtor.show();
-
-        /*
-        double nominal = 1000;
-        double[] couponRates = new double[20];
+        double[] couponRates = new double[5];
         Arrays.fill(couponRates, 0.03 * 0.5);
-        int maturityIndex = 1;
-        DefaultableCouponBondForward couponBond = new DefaultableCouponBondForward(nominal, nominal, couponRates, maturityIndex);
-        */
+        double nominal = 1000;
+        int maturityIndex = 3;
+        final int numberOfValuations = 13;
+        double[] valuesCouponForwardBothD = new double[numberOfValuations];
+        double[] valuesCouponForwardDebtD = new double[numberOfValuations];
+        double[] valuesCouponForwardDebtD2 = new double[numberOfValuations];
+        double[] valuesCouponForwardNoD = new double[numberOfValuations];
+        double[] xPoints = new double[numberOfValuations];
+        System.out.printf("%10s      %10s     %10s     %10s     %10s%n",
+                "Maturity", "C, D def.", "D def. 1", "D def. 2", "Non def.");
+        for(int i = 0; i < numberOfValuations; i++) {
+            DefaultableCouponBondForward forward = new DefaultableCouponBondForward(nominal, nominal, couponRates, i + maturityIndex);
+            valuesCouponForwardBothD[i] = forward.getValue(0, multiModel, process, 1, 0).getAverage();
+            valuesCouponForwardDebtD[i] = forward.getValue(0, modelDebtor, multiModel.getDefaultableProcess(process, 1)).getAverage();
+            valuesCouponForwardDebtD2[i] = forward.getValue(0, modelDebtor, secProcess).getAverage();
+            valuesCouponForwardNoD[i] = forward.getValue(0, base, multiModel.getNonDefaultableProcess(process)).getAverage();
+            xPoints[i] = multiModel.getLiborPeriod(i+maturityIndex);
+            System.out.printf("%2d (T_S=%3.1f):     %10.5f     %10.5f     %10.5f     %10.5f%n",
+                    i + maturityIndex, xPoints[i],
+                    valuesCouponForwardBothD[i], valuesCouponForwardDebtD[i], valuesCouponForwardDebtD2[i], valuesCouponForwardNoD[i]);
+        }
+
+        EasyPlot2D plot = new EasyPlot2D("Creditor and Debtor defaultable", xPoints, valuesCouponForwardBothD);
+        plot.addPlot("Debtor defaultable", xPoints, valuesCouponForwardDebtD);
+        plot.changePlotColor(1, EasyPlot2D.getDefaultColor(1));
+        // plot.addPlot("Non defaultable valuation", xPoints, valuesCouponForwardNoD);
+
+        plot.setTitle("Valuation of Coupon Bond Forwards");
+        plot.setXAxisLabel("Time to maturity");
+        plot.setYAxisLabel("Price");
+        plot.setIsLegendVisible(true);
+        plot.show();
     }
 
 

@@ -11,6 +11,7 @@ import net.finmath.time.TimeDiscretization;
  * Calculates a free Parameter Matrix such that the initial covariance Structure is the same as that of the defaultable model.
  * @author Markus Parhofer
  * @version 1.0
+ * @deprecated This class does not work as intended
  */
 public class DefaultableLIBORCovarianceWithInitialUndefaultableCovariance extends DefaultableLIBORCovarianceWithGuaranteedPositiveSpread {
 

@@ -22,7 +22,7 @@ public class Time {
 	}
 	
 	public static void printTimeResult(long result) {
-		System.out.print("\n\nElapsed Time is " + (result / 1000L) + " Microseconds\n");
+		System.out.print("\nElapsed Time is " + (result / 1000000L) + " Milli Seconds\n");
 	}
 
 	public static void printTimeResult(String name, long result) {

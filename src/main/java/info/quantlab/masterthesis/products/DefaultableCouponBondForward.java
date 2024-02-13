@@ -8,6 +8,7 @@ import net.finmath.montecarlo.interestrate.TermStructureMonteCarloSimulationMode
 import net.finmath.montecarlo.interestrate.products.AbstractTermStructureMonteCarloProduct;
 import net.finmath.montecarlo.process.MonteCarloProcess;
 import net.finmath.stochastic.RandomVariable;
+import net.finmath.stochastic.Scalar;
 
 public class DefaultableCouponBondForward extends AbstractTermStructureMonteCarloProduct {
 
@@ -28,25 +29,58 @@ public class DefaultableCouponBondForward extends AbstractTermStructureMonteCarl
     @Override
     public RandomVariable getValue(double evaluationTime, TermStructureMonteCarloSimulationModel model) throws CalculationException {
         if(model.getModel() instanceof DefaultableLIBORMarketModel defModel) {
-            return getValue(evaluationTime, defModel, model.getProcess());
+            return getValue(evaluationTime, defModel, model.getProcess(), true);
         }
         else if(model.getModel() instanceof MultiLIBORVectorModel multiModel) {
             return getValue(evaluationTime, multiModel, model.getProcess(), 1, 0);
         }
-        // TODO: Implement non defaultable version!
-        return null;
+
+        // Case No Defaultable model given:
+        return getValue(evaluationTime, (LIBORMarketModel) model.getModel(), model.getProcess());
     }
 
-    public RandomVariable getValue(double evaluationTime, DefaultableLIBORMarketModel model, MonteCarloProcess process) throws CalculationException {
+    public RandomVariable getValue(double evaluationTime, LIBORMarketModel model, MonteCarloProcess process) throws CalculationException {
+        if(model instanceof DefaultableLIBORMarketModel defModel) {
+            return getValue(evaluationTime, defModel, process, true);
+        }
+        else if(model instanceof MultiLIBORVectorModel multiModel) {
+            return getValue(evaluationTime, multiModel, process, 1, 0);
+        }
+
+        // Case No Defaultable model given:
         if(evaluationTime > 0) {
             throw new IllegalArgumentException("For now evaluationTime higher than 0 not supported");
         }
+        final int terminalIndex = Math.min(model.getLiborPeriodDiscretization().getNumberOfTimes(), _couponRates.length + _maturityIndex + 1);
+
         final double maturityTime = model.getLiborPeriod(_maturityIndex);
         RandomVariable payoff = model.getRandomVariableForConstant(_strike);
-        for(int i = _maturityIndex + 1; i < model.getLiborPeriodDiscretization().getNumberOfTimes(); i++) {
+        for(int i = _maturityIndex + 1; i < terminalIndex; i++) {
             final double couponTime = model.getLiborPeriod(i);
             RandomVariable coupon = model.getRandomVariableForConstant(_couponRates[i - _maturityIndex - 1]);
-            if(i == model.getLiborPeriodDiscretization().getNumberOfTimeSteps()) {
+            if(i == terminalIndex - 1) {
+                coupon = coupon.add(1.0); // Add redemption
+            }
+            RandomVariable forwardRate = model.getForwardRate(process, maturityTime, maturityTime, couponTime);
+            RandomVariable bond = new Scalar(1.0).discount(forwardRate, couponTime - maturityTime); // P(T_s;T_i)
+            coupon = coupon.mult(_nominal).mult(bond);
+            payoff = payoff.sub(coupon);
+        }
+        payoff = payoff.div(model.getNumeraire(process, maturityTime));
+        return payoff;
+    }
+
+    private RandomVariable getValue(double evaluationTime, DefaultableLIBORMarketModel model, MonteCarloProcess process, boolean reserved) throws CalculationException {
+        if(evaluationTime > 0) {
+            throw new IllegalArgumentException("For now evaluationTime higher than 0 not supported");
+        }
+        final int terminalIndex = Math.min(model.getLiborPeriodDiscretization().getNumberOfTimes(), _couponRates.length + _maturityIndex + 1);
+        final double maturityTime = model.getLiborPeriod(_maturityIndex);
+        RandomVariable payoff = model.getRandomVariableForConstant(_strike);
+        for(int i = _maturityIndex + 1; i < terminalIndex; i++) {
+            final double couponTime = model.getLiborPeriod(i);
+            RandomVariable coupon = model.getRandomVariableForConstant(_couponRates[i - _maturityIndex - 1]);
+            if(i == terminalIndex - 1) {
                 coupon = coupon.add(1.0); // Add redemption
             }
             coupon = coupon.mult(_nominal).mult(model.getDefaultableBond(process, maturityTime, couponTime));

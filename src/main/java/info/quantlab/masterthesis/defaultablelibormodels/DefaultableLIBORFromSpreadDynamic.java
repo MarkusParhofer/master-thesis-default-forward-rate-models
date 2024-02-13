@@ -340,23 +340,27 @@ public class DefaultableLIBORFromSpreadDynamic  extends AbstractProcessModel imp
 	@Override
 	public RandomVariable[] getDrift(MonteCarloProcess process, int timeIndex, RandomVariable[] realizationAtTimeIndex,	RandomVariable[] realizationPredictor) {
 		final RandomVariable[] nonDefaultableDriftVector = getDriftOfNonDefaultableModel(process, timeIndex, realizationAtTimeIndex, realizationPredictor);
-		RandomVariable[] fullDriftVector = Arrays.copyOf(nonDefaultableDriftVector, getNumberOfComponents());
-		
+		return getDriftFast(process, timeIndex, realizationAtTimeIndex, realizationPredictor, nonDefaultableDriftVector);
+	}
+
+	@Override
+	public RandomVariable[] getDriftFast(final MonteCarloProcess process, int timeIndex, final RandomVariable[] realizationAtTimeIndex,	final RandomVariable[] realizationPredictor, final RandomVariable[] nonDefaultableDrift) {
+		RandomVariable[] fullDriftVector = Arrays.copyOf(nonDefaultableDrift, getNumberOfComponents());
 		switch(simulationModel) {
-		case SPREADS:
-			RandomVariable[] spreadDrift = getDriftOfSpread(process, timeIndex, realizationAtTimeIndex, realizationPredictor, nonDefaultableDriftVector);
-			for(int i=getNumberOfLIBORPeriods(); i < getNumberOfComponents(); i++) {
-				fullDriftVector[i] = spreadDrift[i - getNumberOfLIBORPeriods()];
-			}
-			break;
-		case LIBORS:			
-			RandomVariable[] defaultableDrift = getDriftOfDefaultableModel(process, timeIndex, realizationAtTimeIndex, realizationPredictor);
-			for(int i=getNumberOfLIBORPeriods(); i < getNumberOfComponents(); i++) {
-				fullDriftVector[i] = defaultableDrift[i - getNumberOfLIBORPeriods()];
-			}
-			break;
-		default:
-			throw new IllegalArgumentException("Method not implemented for specified simulation model.");
+			case SPREADS:
+				RandomVariable[] spreadDrift = getDriftOfSpread(process, timeIndex, realizationAtTimeIndex, realizationPredictor, nonDefaultableDrift);
+				for(int i=getNumberOfLIBORPeriods(); i < getNumberOfComponents(); i++) {
+					fullDriftVector[i] = spreadDrift[i - getNumberOfLIBORPeriods()];
+				}
+				break;
+			case LIBORS:
+				RandomVariable[] defaultableDrift = getDriftOfDefaultableModel(process, timeIndex, realizationAtTimeIndex, realizationPredictor);
+				for(int i=getNumberOfLIBORPeriods(); i < getNumberOfComponents(); i++) {
+					fullDriftVector[i] = defaultableDrift[i - getNumberOfLIBORPeriods()];
+				}
+				break;
+			default:
+				throw new IllegalArgumentException("Method not implemented for specified simulation model.");
 		}
 		return fullDriftVector;
 	}
@@ -438,9 +442,7 @@ public class DefaultableLIBORFromSpreadDynamic  extends AbstractProcessModel imp
 				
 		// TODO Add functionality of lognormal. I.e. add 0.5*sigma^2 to both drifts and multiply with realization
 		
-		
-		
-		
+
 		for(int libor=0; libor < getNumberOfLIBORPeriods(); libor++) {
 			if(drift[libor] == null || nonDefaultableDrifts[libor] == null) {
 				drift[libor] = null;

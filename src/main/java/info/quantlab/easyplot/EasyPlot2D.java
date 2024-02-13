@@ -126,7 +126,19 @@ public class EasyPlot2D extends Plot2D {
 				xmin, xmax, numberOfPointsX, operator, getDefaultGraphStyle(functions.indexOf(operator), true, unstaticDrawingSupplier)))).toList();
 		return addPlot(newPlots);
 	}
-	
+
+	public EasyPlot2D addPlot(String name, final double[] xPoints, final double[] yPoints, final GraphStyle style) {
+		return addPlot(PlotablePoints2D.of(name, xPoints, yPoints, style));
+	}
+
+	public EasyPlot2D addPlot(String name, final double[] xPoints, final double[] yPoints) {
+		return addPlot(name, xPoints, yPoints, getDefaultGraphStyle(getNumberOfPlots(), false, unstaticDrawingSupplier));
+	}
+
+	public EasyPlot2D addPlot(final double[] xPoints, final double[] yPoints) {
+		return addPlot("", xPoints, yPoints);
+	}
+
 	@Override
 	public Plot2D update(final List<Plotable2D> plotables) {
 		this.plotables = plotables;

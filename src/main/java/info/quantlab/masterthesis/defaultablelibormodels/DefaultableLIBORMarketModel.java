@@ -16,18 +16,33 @@ public interface DefaultableLIBORMarketModel extends LIBORMarketModel, ProcessMo
 	 * @return the non-defaultable model.
 	 */
 	LIBORMarketModel getNonDefaultableLIBORModel();
-	
+
 	/**
 	 * Gets the drift part of the non-defaultable model. This will return an array of size <code>{@link LIBORModel#getNumberOfLibors()}</code>.
 	 * @param process The discretization process generating the whole model. The process provides call backs for 
 	 * 	TimeDiscretization and allows calls to getProcessValue for timeIndices less or equal the given one.
-	 * @param timeIndex The time index (associated with MonteCarloProcess.getTimeDiscretization().
+	 * @param timeIndex The time index (associated with MonteCarloProcess.getTimeDiscretization()).
 	 * @param realizationAtTimeIndex A vector of the realizations of the model.
 	 * @param realizationPredictor The given realization at <code>timeIndex + 1</code> or null if no predictor is available.
 	 * @return the drift vector of the defaultable model assosciated with the realizations given.
 	 */
 	RandomVariable[] getDriftOfNonDefaultableModel(MonteCarloProcess process, int timeIndex, RandomVariable[] realizationAtTimeIndex,	RandomVariable[] realizationPredictor);
-	
+
+	/**
+	 * Returns the drift vector of the model. Might give performance benefits, if the non defaultable
+	 * drift vector is known. All input must be exactly as in {@link #getDrift(MonteCarloProcess, int, RandomVariable[], RandomVariable[])}.
+	 * @param process The process simulating the SDE
+	 * @param timeIndex The time index (associated with MonteCarloProcess.getTimeDiscretization()).
+	 * @param realizationAtTimeIndex A vector of the realizations of the model.
+	 * @param realizationPredictor The given realization at <code>timeIndex + 1</code> or null if no predictor is available.
+	 * @param nonDefaultableDrift The drift vector of the underlying non defaultable model.
+	 *                               Specifying this might give performance benefits.
+	 * @return The drift vector.
+	 */
+	default RandomVariable[] getDriftFast(final MonteCarloProcess process, int timeIndex, final RandomVariable[] realizationAtTimeIndex, final RandomVariable[] realizationPredictor, final RandomVariable[] nonDefaultableDrift) {
+		return getDrift(process, timeIndex, realizationAtTimeIndex, realizationPredictor);
+	}
+
 	/**
 	 * Gets the drift part of the defaultable model. This will return an array of size <code>{@link LIBORModel#getNumberOfLibors()}</code>. However the 
 	 * realizations and realizationPredictor must still be an array of double the size, where the first half are the realizations of the non-defaultable model, 

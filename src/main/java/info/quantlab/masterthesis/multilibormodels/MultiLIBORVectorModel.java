@@ -263,7 +263,7 @@ public class MultiLIBORVectorModel implements LIBORMarketModel {
 		if(numberOfThreadsForProductValuation == 0) {
 			executor = Executors.newFixedThreadPool(numberOfThreadsForProductValuation);
 		}
-		
+		final RandomVariable[] nonDefDrift = getNonDefaultableModel().getDrift(getNonDefaultableProcess(process), timeIndex, nonDefaultableRealizations, nonDefaultableRealizationPred);
 		ArrayList<Future<RandomVariable[]>> driftFutures = new ArrayList<>(getNumberOfDefaultableModels());
 		for(int i = 0; i < getNumberOfDefaultableModels(); i++) {
 			final int modelIndex = i;
@@ -283,7 +283,7 @@ public class MultiLIBORVectorModel implements LIBORMarketModel {
                     }
                 }
 
-                return model.getDriftOfDefaultableModel(getDefaultableProcess(process, modelIndex), timeIndex, realizationForModel, realizationPredForModel);
+                return model.getDriftFast(getDefaultableProcess(process, modelIndex), timeIndex, realizationForModel, realizationPredForModel, nonDefDrift);
             };
 			
 			if(executor != null) {
@@ -297,20 +297,24 @@ public class MultiLIBORVectorModel implements LIBORMarketModel {
 			}
 		}
 		
-		RandomVariable[] nonDefaultableDrift = getNonDefaultableModel().getDrift(getNonDefaultableProcess(process), timeIndex, nonDefaultableRealizations, nonDefaultableRealizationPred);
-		RandomVariable[] driftVector = Arrays.copyOf(nonDefaultableDrift, getNumberOfComponents());
+		RandomVariable[] driftVector = null;
 		
 		for(int modelIndex=0; modelIndex < getNumberOfDefaultableModels(); modelIndex++) {
 			RandomVariable[] defaultableDrift;
 			try {
 				defaultableDrift = driftFutures.get(modelIndex).get();
 			} catch (InterruptedException | ExecutionException e) {
-				//System.out.println("In Drift calculation: Multithreading did not work. Calling getDriftSlow(...)...");
+				System.out.println("In Drift calculation: Multithreading did not work. Calling getDriftSlow(...)...");
 				return getDriftSlow(process, timeIndex, realizationAtTimeIndex, realizationPredictor);
 			}
-			for(int component = 0; component < getNumberOfLiborPeriods(); component++) {
-				// First Indices of defaultable Drift are Non defaultable Drift
-				driftVector[getFirstComponentOfDefaultableModel(modelIndex) + component] = defaultableDrift[component + getNumberOfLiborPeriods()];
+			if(modelIndex == 0) {
+				driftVector = Arrays.copyOf(defaultableDrift, getNumberOfComponents());
+			}
+			else {
+				for (int component = 0; component < getNumberOfLiborPeriods(); component++) {
+					// First Indices of defaultable Drift are Non defaultable Drift
+					driftVector[getFirstComponentOfDefaultableModel(modelIndex) + component] = defaultableDrift[component + getNumberOfLiborPeriods()];
+				}
 			}
 		}
 		return driftVector;
@@ -326,10 +330,10 @@ public class MultiLIBORVectorModel implements LIBORMarketModel {
 		if(realizationPredictor != null)
 			realizationPredForModel = Arrays.copyOf(realizationPredictor,  getDefaultableModel(0).getNumberOfComponents());
 		
-		RandomVariable[] firstDrift = getDefaultableModel(0).getDrift(getDefaultableProcess(process, 0), timeIndex, realizationForModel, realizationPredForModel);
-		RandomVariable[] driftVector = Arrays.copyOf(firstDrift, getNumberOfComponents());
+		RandomVariable[] nonDefDrift = getNonDefaultableModel().getDrift(getNonDefaultableProcess(process), timeIndex, realizationForModel, realizationPredForModel);
+		RandomVariable[] driftVector = Arrays.copyOf(nonDefDrift, getNumberOfComponents());
 		
-		for(int modelIndex = 1; modelIndex < getNumberOfDefaultableModels(); modelIndex++) {
+		for(int modelIndex = 0; modelIndex < getNumberOfDefaultableModels(); modelIndex++) {
             for(int comp = 0; comp < getNumberOfLiborPeriods(); comp++) {
 				if(realizationForModel != null)
 					realizationForModel[comp + getNumberOfLiborPeriods()] = realizationAtTimeIndex[getFirstComponentOfDefaultableModel(modelIndex) + comp];
@@ -338,7 +342,7 @@ public class MultiLIBORVectorModel implements LIBORMarketModel {
 			}
 			final DefaultableLIBORMarketModel model = getDefaultableModel(modelIndex);
 			
-			RandomVariable[] modelDrift = model.getDrift(getDefaultableProcess(process, modelIndex), timeIndex, realizationForModel, realizationPredForModel);
+			RandomVariable[] modelDrift = model.getDriftFast(getDefaultableProcess(process, modelIndex), timeIndex, realizationForModel, realizationPredForModel, nonDefDrift);
 			for(int component = 0; component < getNumberOfLiborPeriods(); component++) {
 				driftVector[getFirstComponentOfDefaultableModel(modelIndex) + component] = modelDrift[component + getNumberOfLiborPeriods()];
 			}

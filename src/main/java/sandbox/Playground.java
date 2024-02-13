@@ -6,6 +6,7 @@ import java.util.function.DoubleToIntFunction;
 import java.util.function.DoubleUnaryOperator;
 import java.util.stream.Collectors;
 
+import info.quantlab.debug.Time;
 import info.quantlab.easyplot.EasyPlot2D;
 import net.finmath.exception.CalculationException;
 import net.finmath.montecarlo.*;
@@ -16,23 +17,40 @@ import net.finmath.stochastic.Scalar;
 import net.finmath.time.TimeDiscretization;
 import net.finmath.time.TimeDiscretizationFromArray;
 
-public class Playground {
+public class Playground extends Time {
 
 	public static boolean useGPU = false;
-	private static long startTime;
-	
-	public static void tic() {
-		startTime = System.nanoTime();
-	}
-	
-	public static long toc() {
-		long result = System.nanoTime();
-		result -= startTime;
-		System.out.println("Elapsed Time is: " + result/1000000 + " Milliseconds");
-		return result;
-	}
 	
 	public static void main(String[] args) {
+		testForLoopWithOuterVar();
+	}
+
+	public static void testForLoopWithOuterVar() {
+		int outerVar = 0;
+		int anotherVar = 0;
+		tic();
+		for (; outerVar < 100000; outerVar++, anotherVar++) {
+			System.out.println("Outer Variable is " + outerVar);
+		}
+		long firstRes = toc();
+		System.out.println("\nOut of loop now!");
+		System.out.println("Outer Variable is " + outerVar);
+		System.out.println("Another Variable is " + anotherVar);
+		System.out.println();
+		tic();
+		anotherVar = 100000;
+		outerVar = 0;
+		for (; outerVar < 100000; outerVar++) {
+			System.out.println("Outer Variable is " + outerVar);
+		}
+		System.out.println("\nOut of loop now!");
+		System.out.println("Outer Variable is " + outerVar);
+		System.out.println("Another Variable is " + anotherVar);
+		printTimeResult(firstRes);
+		toc();
+	}
+
+	public static void testGPURV() {
 		int numberOfPathsToPlot = 1;
 		RandomVariableFactory factory = null;
 		if(useGPU)
@@ -72,5 +90,4 @@ public class Playground {
 		plotPaths.setTitle("Sample Paths");
 		plotPaths.show();
 	}
-
 }
