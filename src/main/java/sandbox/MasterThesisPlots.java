@@ -8,7 +8,9 @@ import info.quantlab.masterthesis.factory.DefaultableLIBORModelFactory;
 import info.quantlab.masterthesis.functional.FunctionsOnRandomVariables;
 import info.quantlab.masterthesis.multilibormodels.MultiLIBORVectorModel;
 import info.quantlab.masterthesis.process.MilsteinSchemeFiniteDifference;
+import info.quantlab.masterthesis.products.CancellableLoan;
 import info.quantlab.masterthesis.products.DefaultableCouponBondForward;
+import info.quantlab.masterthesis.products.LoanProduct;
 import net.finmath.exception.CalculationException;
 import net.finmath.montecarlo.BrownianMotion;
 import net.finmath.montecarlo.BrownianMotionFromMersenneRandomNumbers;
@@ -44,7 +46,82 @@ public class MasterThesisPlots extends Time {
     public static void main(String[] args) throws CalculationException {
         // creditorModel();
         // debtorModel();
-        createCreditorAndPayerDefaultablePlot();
+        createCancellableLoanPlot();
+    }
+
+    public static void createCancellableLoanPlot() throws CalculationException {
+        DefaultableLIBORModelFactory factory = new DefaultableLIBORModelFactory();
+        Map<String, Object> properties = new HashMap<>();
+
+        properties.put("fixingTimes", new double[] {0.5, 1.0, 2.0, 4.0, 8.0, 25.0});
+        properties.put("liborPeriodLength", 0.5);
+        properties.put("numberOfLiborPeriods", 20);
+        properties.put("stateSpace", "NORMAL");
+        properties.put("measure", "SPOT");
+
+        properties.put("covarianceModel", DefaultableLIBORModelFactory.CovarianceModel.BLENDED);
+        properties.put("numberOfFactors", 5);
+        properties.put("volatilityParams", new double[] {0.02, 0.0, 0.25, 0.15});
+        properties.put("correlationDecayParam", 0.2);
+        properties.put("displacement", 0.0001);
+        properties.put("initialRatesNonDefaultable", new double[] {0.025, 0.023, 0.028, 0.031, 0.031, 0.032});
+        properties.put("simulationTimeDelta", 0.01);
+
+        factory.setProperties(properties);
+
+        LIBORMarketModel base = factory.createBaseModel();
+
+        // Def Model 1: Creditor (lower Covariance and lower Spread):
+        properties.put("numberOfExtraFactors", 2);
+        properties.put("initialRatesDefaultable", new double[] {0.03, 0.03, 0.031, 0.033, 0.034, 0.036});
+        properties.put("simulationModel", "SPREADS");
+        properties.put("stateSpaceOfSpread", "LOGNORMAL");
+        properties.put("freeParamsSeed", 33);
+        properties.put("freeParamsRange", 0.4);
+        factory.setProperties(properties);
+
+        DefaultableLIBORMarketModel modelCreditor = factory.createDefaultableModel(base);
+
+
+        // Def Model 2: Debtor (lower Covariance and lower Spread):
+        properties.put("numberOfExtraFactors", 3);
+        properties.put("initialRatesDefaultable", new double[] {0.04, 0.043, 0.042, 0.044, 0.045, 0.043});
+        properties.put("simulationModel", "SPREADS");
+        properties.put("stateSpaceOfSpread", "LOGNORMAL");
+        properties.put("freeParamsSeed", 1030);
+        properties.put("freeParamsRange", 0.7);
+        factory.setProperties(properties);
+
+        DefaultableLIBORMarketModel modelDebtor = factory.createDefaultableModel(base);
+
+
+        MultiLIBORVectorModel multiModel = new MultiLIBORVectorModel(new DefaultableLIBORMarketModel[]{modelCreditor, modelDebtor}, base);
+
+        // Simulation:
+        properties.put("numberOfPaths", 5000);
+        properties.put("brownianMotionSeed", 30312);
+        properties.put("numericalScheme", DefaultableLIBORModelFactory.Scheme.EULER_FUNCTIONAL);
+        factory.setProperties(properties);
+
+        MonteCarloProcess process = factory.createNumericalScheme(multiModel);
+
+        final double liborPeriodLength = multiModel.getLiborPeriod(1);
+
+        TimeDiscretization loanTenor = new TimeDiscretizationFromArray(liborPeriodLength, 14, liborPeriodLength);
+        final double[] coupons = new double[15];
+        final double nominal = 1000;
+        for(int i=0; i < 15; i++) {
+            coupons[i] = multiModel.getDefaultableLIBOR(process, 0, i, 1).doubleValue();
+            coupons[i] *= nominal * liborPeriodLength;
+        }
+        coupons[14] += nominal;
+        CancellableLoan loanCC = new CancellableLoan(loanTenor, coupons, 4.5, nominal, 0, 1, LoanProduct.Perspective.CREDITOR, LoanProduct.Perspective.CREDITOR);
+        CancellableLoan loanCD = new CancellableLoan(loanTenor, coupons, 4.5, nominal, 0, 1, LoanProduct.Perspective.CREDITOR, LoanProduct.Perspective.DEBTOR);
+        CancellableLoan loanDD = new CancellableLoan(loanTenor, coupons, 4.5, nominal, 0, 1, LoanProduct.Perspective.DEBTOR, LoanProduct.Perspective.DEBTOR);
+        tic();
+        System.out.println("Loan Cred Cred    Loan Cred Debt    Loan Debt Debt");
+        System.out.printf("%14.7f    %14.7f    %14.7f", loanCC.getValue(0.0, multiModel, process).getAverage(), loanCD.getValue(0.0, multiModel, process).getAverage(), loanDD.getValue(0.0, multiModel, process).getAverage());
+        toc();
     }
 
     public static void createTimingPlotDefModel() throws CalculationException {
@@ -256,6 +333,131 @@ public class MasterThesisPlots extends Time {
 
     }
 
+    public static void createCreditorAndPayerDefaultablePlotByCouponRate() throws CalculationException {
+        DefaultableLIBORModelFactory factory = new DefaultableLIBORModelFactory();
+        Map<String, Object> properties = new HashMap<>();
+
+        properties.put("fixingTimes", new double[] {0.5, 1.0, 2.0, 4.0, 8.0, 25.0});
+        properties.put("liborPeriodLength", 0.5);
+        properties.put("numberOfLiborPeriods", 20);
+        properties.put("stateSpace", "NORMAL");
+        properties.put("measure", "SPOT");
+
+        properties.put("covarianceModel", DefaultableLIBORModelFactory.CovarianceModel.BLENDED);
+        properties.put("numberOfFactors", 5);
+        properties.put("volatilityParams", new double[] {0.02, 0.0, 0.25, 0.15});
+        properties.put("correlationDecayParam", 0.2);
+        properties.put("displacement", 0.0001);
+        properties.put("initialRatesNonDefaultable", new double[] {0.025, 0.023, 0.028, 0.031, 0.031, 0.032});
+        properties.put("simulationTimeDelta", 0.01);
+
+        factory.setProperties(properties);
+
+        LIBORMarketModel base = factory.createBaseModel();
+
+        // Def Model 1: Creditor (lower Covariance and lower Spread):
+        properties.put("numberOfExtraFactors", 2);
+        properties.put("initialRatesDefaultable", new double[] {0.03, 0.03, 0.031, 0.033, 0.034, 0.036});
+        properties.put("simulationModel", "SPREADS");
+        properties.put("stateSpaceOfSpread", "LOGNORMAL");
+        properties.put("freeParamsSeed", 33);
+        properties.put("freeParamsRange", 0.4);
+        factory.setProperties(properties);
+
+        DefaultableLIBORMarketModel modelCreditor = factory.createDefaultableModel(base);
+
+
+        // Def Model 2: Debtor (lower Covariance and lower Spread):
+        properties.put("numberOfExtraFactors", 3);
+        properties.put("initialRatesDefaultable", new double[] {0.04, 0.043, 0.042, 0.044, 0.045, 0.043});
+        properties.put("simulationModel", "SPREADS");
+        properties.put("stateSpaceOfSpread", "LOGNORMAL");
+        properties.put("freeParamsSeed", 1030);
+        properties.put("freeParamsRange", 0.7);
+        factory.setProperties(properties);
+
+        DefaultableLIBORMarketModel modelDebtor = factory.createDefaultableModel(base);
+
+
+        MultiLIBORVectorModel multiModel = new MultiLIBORVectorModel(new DefaultableLIBORMarketModel[]{modelCreditor, modelDebtor}, base);
+
+        // Simulation:
+        properties.put("numberOfPaths", 5000);
+        properties.put("brownianMotionSeed", 30312);
+        properties.put("numericalScheme", DefaultableLIBORModelFactory.Scheme.EULER_FUNCTIONAL);
+        factory.setProperties(properties);
+
+        MonteCarloProcess process = factory.createNumericalScheme(multiModel);
+
+        double nominal = 100000;
+        int maturityIndex = 3;
+        final int numberOfValuations = 10;
+        final int fMaturityIndex = 9; // i + maturityIndex;
+        double[] valuesCouponForwardBothD = new double[numberOfValuations];
+        double[] valuesCouponForwardDebtD = new double[numberOfValuations];
+        double[] valuesCouponForwardBothDCredC = new double[numberOfValuations];
+        double[] valuesCouponForwardBothDBothC = new double[numberOfValuations];
+        double[] valuesCouponForwardNoD = new double[numberOfValuations];
+        double[] xPoints = new double[numberOfValuations];
+
+        final double survivalDebtor = modelDebtor.getSurvivalProbability(multiModel.getDefaultableProcess(process, 1), multiModel.getLiborPeriod(fMaturityIndex)).getAverage();
+        final double survivalCreditor = modelCreditor.getSurvivalProbability(multiModel.getDefaultableProcess(process, 0), multiModel.getLiborPeriod(fMaturityIndex)).getAverage();
+        System.out.printf("Survival Probability Debtor: %5.1f %% %n", survivalDebtor * 100);
+        System.out.printf("Survival Probability Creditor: %5.1f %% %n", survivalCreditor * 100);
+        System.out.printf("%10s      %10s     %10s     %10s     %10s     %10s%n",
+                "Coupons", "C, D def.", "D def.", "C coll.", "D,C coll.", "Non def.");
+        final double ciDelta = 0.0002;
+        double ci = 0.043;
+        for(int i = 0; i < numberOfValuations; i++) {
+            double[] couponRates = new double[5];
+            Arrays.fill(couponRates, ci * 0.5);
+            DefaultableCouponBondForward forward = new DefaultableCouponBondForward(nominal, nominal, couponRates, fMaturityIndex);
+            valuesCouponForwardBothD[i] = forward.getValue(0, multiModel, process, 1, 0).getAverage();
+            valuesCouponForwardDebtD[i] = forward.getValue(0, modelDebtor, multiModel.getDefaultableProcess(process, 1)).getAverage();
+            valuesCouponForwardNoD[i] = forward.getValue(0, base, multiModel.getNonDefaultableProcess(process)).getAverage();
+            DefaultableCouponBondForward multiForwardCC = new DefaultableCouponBondForward(nominal, nominal, couponRates, fMaturityIndex, true, false);
+            DefaultableCouponBondForward multiForwardBC = new DefaultableCouponBondForward(nominal, nominal, couponRates, fMaturityIndex, true);
+            valuesCouponForwardBothDCredC[i] = multiForwardCC.getValue(0, multiModel, process, 1, 0).getAverage();
+            valuesCouponForwardBothDBothC[i] = multiForwardBC.getValue(0, multiModel, process, 1, 0).getAverage();
+            xPoints[i] = ci * 100;
+            ci += ciDelta;
+
+            System.out.printf("c=%6.4f:     %10.5f     %10.5f     %10.5f     %10.5f     %10.5f%n",
+                    xPoints[i],
+                    valuesCouponForwardBothD[i], valuesCouponForwardDebtD[i], valuesCouponForwardBothDCredC[i], valuesCouponForwardBothDBothC[i], valuesCouponForwardNoD[i]);
+        }
+
+        EasyPlot2D plot = new EasyPlot2D("Creditor and Debtor defaultable", xPoints, valuesCouponForwardBothD);
+        plot.addPlot("Debtor defaultable", xPoints, valuesCouponForwardDebtD);
+        //plot.addPlot("Pure Cash-Settled, Both defaultable", xPoints, valuesCouponForwardBothDBothC);
+        //plot.addPlot("Cash-Settled, Both defaultable", xPoints, valuesCouponForwardBothDCredC);
+        plot.changePlotColor(1, EasyPlot2D.getDefaultColor(1));
+        //plot.changePlotColor(2, EasyPlot2D.getDefaultColor(2));
+        // plot.changePlotColor(1, EasyPlot2D.getDefaultColor(3));
+        // plot.addPlot("Non defaultable valuation", xPoints, valuesCouponForwardNoD);
+
+        plot.setTitle("Valuation of Coupon Bond Forwards");
+        plot.setXAxisLabel("Coupons in %");
+        plot.setYAxisLabel("Price");
+        plot.setIsLegendVisible(true);
+        plot.show();
+
+        EasyPlot2D plot2 = new EasyPlot2D("Creditor and Debtor defaultable", xPoints, valuesCouponForwardBothD);
+        plot2.addPlot("Debtor defaultable", xPoints, valuesCouponForwardDebtD);
+        //plot.addPlot("Pure Cash-Settled, Both defaultable", xPoints, valuesCouponForwardBothDBothC);
+        plot2.addPlot("Cash-Settled, Both defaultable", xPoints, valuesCouponForwardBothDCredC);
+        plot2.changePlotColor(1, EasyPlot2D.getDefaultColor(1));
+        plot2.changePlotColor(2, EasyPlot2D.getDefaultColor(2));
+        // plot.changePlotColor(1, EasyPlot2D.getDefaultColor(3));
+        // plot.addPlot("Non defaultable valuation", xPoints, valuesCouponForwardNoD);
+
+        plot2.setTitle("Valuation of Coupon Bond Forwards");
+        plot2.setXAxisLabel("Coupons in %");
+        plot2.setYAxisLabel("Price");
+        plot2.setIsLegendVisible(true);
+        plot2.show();
+    }
+
     public static void createCreditorAndPayerDefaultablePlot() throws CalculationException {
         DefaultableLIBORModelFactory factory = new DefaultableLIBORModelFactory();
         Map<String, Object> properties = new HashMap<>();
@@ -319,33 +521,46 @@ public class MasterThesisPlots extends Time {
         motion2 = new BrownianMotionView((BrownianMotion) process.getStochasticDriver(), factors);
         MonteCarloProcess secProcess = new EulerSchemeFromProcessModel(modelDebtor, motion2, EulerSchemeFromProcessModel.Scheme.EULER_FUNCTIONAL);
 
-        double[] couponRates = new double[5];
-        Arrays.fill(couponRates, 0.03 * 0.5);
-        double nominal = 1000;
+        double nominal = 1000000;
         int maturityIndex = 3;
         final int numberOfValuations = 13;
         double[] valuesCouponForwardBothD = new double[numberOfValuations];
         double[] valuesCouponForwardDebtD = new double[numberOfValuations];
-        double[] valuesCouponForwardDebtD2 = new double[numberOfValuations];
+        double[] valuesCouponForwardBothDCredC = new double[numberOfValuations];
+        double[] valuesCouponForwardBothDBothC = new double[numberOfValuations];
         double[] valuesCouponForwardNoD = new double[numberOfValuations];
         double[] xPoints = new double[numberOfValuations];
-        System.out.printf("%10s      %10s     %10s     %10s     %10s%n",
-                "Maturity", "C, D def.", "D def. 1", "D def. 2", "Non def.");
+        System.out.printf("%10s      %10s     %10s     %10s     %10s     %10s%n",
+                "Maturity", "C, D def.", "D def.", "C coll.", "D,C coll.", "Non def.");
+        final double ciDelta = 0.002;
+        double ci = 0.03;
         for(int i = 0; i < numberOfValuations; i++) {
+            double[] couponRates = new double[5];
+            Arrays.fill(couponRates, ci * 0.5);
+            // ci += ciDelta;
+            final int fMaturityIndex = i + maturityIndex;
             DefaultableCouponBondForward forward = new DefaultableCouponBondForward(nominal, nominal, couponRates, i + maturityIndex);
             valuesCouponForwardBothD[i] = forward.getValue(0, multiModel, process, 1, 0).getAverage();
             valuesCouponForwardDebtD[i] = forward.getValue(0, modelDebtor, multiModel.getDefaultableProcess(process, 1)).getAverage();
-            valuesCouponForwardDebtD2[i] = forward.getValue(0, modelDebtor, secProcess).getAverage();
             valuesCouponForwardNoD[i] = forward.getValue(0, base, multiModel.getNonDefaultableProcess(process)).getAverage();
+            DefaultableCouponBondForward multiForwardCC = new DefaultableCouponBondForward(nominal, nominal, couponRates, i + maturityIndex, true, false);
+            DefaultableCouponBondForward multiForwardBC = new DefaultableCouponBondForward(nominal, nominal, couponRates, i + maturityIndex, true);
+            valuesCouponForwardBothDCredC[i] = multiForwardCC.getDoubleValue(0, multiModel, process, 1, 0);
+            valuesCouponForwardBothDBothC[i] = multiForwardBC.getDoubleValue(0, multiModel, process, 1, 0);
             xPoints[i] = multiModel.getLiborPeriod(i+maturityIndex);
-            System.out.printf("%2d (T_S=%3.1f):     %10.5f     %10.5f     %10.5f     %10.5f%n",
+
+            System.out.printf("%2d (T_S=%3.1f):     %10.5f     %10.5f     %10.5f     %10.5f     %10.5f%n",
                     i + maturityIndex, xPoints[i],
-                    valuesCouponForwardBothD[i], valuesCouponForwardDebtD[i], valuesCouponForwardDebtD2[i], valuesCouponForwardNoD[i]);
+                    valuesCouponForwardBothD[i], valuesCouponForwardDebtD[i], valuesCouponForwardBothDCredC[i], valuesCouponForwardBothDBothC[i], valuesCouponForwardNoD[i]);
         }
 
         EasyPlot2D plot = new EasyPlot2D("Creditor and Debtor defaultable", xPoints, valuesCouponForwardBothD);
         plot.addPlot("Debtor defaultable", xPoints, valuesCouponForwardDebtD);
+        //plot.addPlot("Pure Cash-Settled, Both defaultable", xPoints, valuesCouponForwardBothDBothC);
+        plot.addPlot("Cash-Settled, debtor does not collect, Both defaultable", xPoints, valuesCouponForwardBothDCredC);
         plot.changePlotColor(1, EasyPlot2D.getDefaultColor(1));
+        plot.changePlotColor(2, EasyPlot2D.getDefaultColor(2));
+        // plot.changePlotColor(1, EasyPlot2D.getDefaultColor(3));
         // plot.addPlot("Non defaultable valuation", xPoints, valuesCouponForwardNoD);
 
         plot.setTitle("Valuation of Coupon Bond Forwards");

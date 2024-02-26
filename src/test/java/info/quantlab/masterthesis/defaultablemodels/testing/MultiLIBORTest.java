@@ -158,7 +158,7 @@ public class MultiLIBORTest extends Time {
 		properties.put("correlationDecayParam", 0.2);
 		properties.put("displacement", 0.0001);
 		properties.put("initialRatesNonDefaultable", new double[] {0.025, 0.023, 0.028, 0.031, 0.031, 0.032});
-		properties.put("simulationTimeDelta", 0.01);
+		properties.put("simulationTimeDelta", 0.05);
 
 		factory.setProperties(properties);
 
@@ -206,7 +206,7 @@ public class MultiLIBORTest extends Time {
 		properties.put("correlationDecayParam", 0.2);
 		properties.put("displacement", 0.0001);
 		properties.put("initialRatesNonDefaultable", new double[] {0.025, 0.023, 0.028, 0.031, 0.031, 0.032});
-		properties.put("simulationTimeDelta", 0.02);
+		properties.put("simulationTimeDelta", 0.05);
 
 		factory.setProperties(properties);
 
