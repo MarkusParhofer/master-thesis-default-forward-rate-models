@@ -111,7 +111,7 @@ public class MultiLIBORTest extends Time {
 		properties.put("correlationDecayParam", 0.2);
 		properties.put("displacement", 0.0001);
 		properties.put("initialRatesNonDefaultable", new double[] {0.025, 0.023, 0.028, 0.031, 0.031, 0.032});
-		properties.put("simulationTimeDelta", 0.01);
+		properties.put("simulationTimeDelta", 0.05);
 
 		factory.setProperties(properties);
 
@@ -129,7 +129,7 @@ public class MultiLIBORTest extends Time {
 		DefaultableLIBORMarketModel modelCreditor = factory.createDefaultableModel(base);
 
 		// Simulation:
-		properties.put("numberOfPaths", 5000);
+		properties.put("numberOfPaths", 10000);
 		properties.put("brownianMotionSeed", 3666);
 		properties.put("numericalScheme", DefaultableLIBORModelFactory.Scheme.EULER_FUNCTIONAL);
 		factory.setProperties(properties);
@@ -206,7 +206,7 @@ public class MultiLIBORTest extends Time {
 		properties.put("correlationDecayParam", 0.2);
 		properties.put("displacement", 0.0001);
 		properties.put("initialRatesNonDefaultable", new double[] {0.025, 0.023, 0.028, 0.031, 0.031, 0.032});
-		properties.put("simulationTimeDelta", 0.01);
+		properties.put("simulationTimeDelta", 0.02);
 
 		factory.setProperties(properties);
 
@@ -239,7 +239,7 @@ public class MultiLIBORTest extends Time {
 		MultiLIBORVectorModel multiModel = new MultiLIBORVectorModel(new DefaultableLIBORMarketModel[]{modelCreditor, modelDebtor}, base);
 
 		// Simulation:
-		properties.put("numberOfPaths", 5000);
+		properties.put("numberOfPaths", 10000);
 		properties.put("brownianMotionSeed", 7878);
 		properties.put("numericalScheme", DefaultableLIBORModelFactory.Scheme.EULER_FUNCTIONAL);
 		factory.setProperties(properties);

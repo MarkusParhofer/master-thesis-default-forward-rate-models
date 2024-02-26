@@ -375,7 +375,7 @@ public class DefaultableLIBORFromSpreadDynamic  extends AbstractProcessModel imp
 		if(realizationPredictor != null) {
 			sRealizationPredictor = Arrays.copyOf(realizationPredictor, getNonDefaultableLIBORModel().getNumberOfComponents());
 		}
-		return getNonDefaultableLIBORModel().getDrift(getNonDefaultableProcess(process), timeIndex, sRealization, sRealizationPredictor);
+		return getNonDefaultableLIBORModel().getDrift( getNonDefaultableProcess(process), timeIndex, sRealization, sRealizationPredictor);
 	}
 
 	@Override
@@ -596,10 +596,10 @@ public class DefaultableLIBORFromSpreadDynamic  extends AbstractProcessModel imp
 	@Override
 	public RandomVariable getDefaultableLIBOR(MonteCarloProcess process, int timeIndex, int liborIndex) throws CalculationException {
 		if(timeIndex == 0 || getLiborPeriod(liborIndex) == 0d)
-			return getRandomVariableForConstant(getForwardRateCurve().getForward(getAnalyticModel(), getLiborPeriod(liborIndex)));
+			return getRandomVariableForConstant(getForwardRateCurve().getForward( getAnalyticModel(), getLiborPeriod(liborIndex)));
 		
 		if (simulationModel == SimulationModel.SPREADS)
-			return process.getProcessValue(timeIndex, liborIndex).add(process.getProcessValue(timeIndex, getSpreadComponentIndex(liborIndex)));
+			return process.getProcessValue(timeIndex, liborIndex).add(process.getProcessValue( timeIndex, getSpreadComponentIndex(liborIndex)));
 		else
 			return process.getProcessValue(timeIndex, getDefaultableComponentIndex(liborIndex));
 	}
@@ -873,7 +873,7 @@ public class DefaultableLIBORFromSpreadDynamic  extends AbstractProcessModel imp
 									// Factor Loading definately needs Initial values of the form (L_0, ..., L_n, L^d_0, ..., L^d_n)
 									final double time = timeDiscretization.getTime(timeIndex);
 									try {
-										initialLIBORValues = getLiborApproximation(time, false);
+										initialLIBORValues = getLiborApproximation(time, true);
 									} catch (CalculationException e) {
 										e.printStackTrace();
 										throw new UnsupportedOperationException("Cannot get Initial LIBOR rates as Estimators!");
@@ -1044,7 +1044,6 @@ public class DefaultableLIBORFromSpreadDynamic  extends AbstractProcessModel imp
 	public RandomVariable getRandomVariableForConstant(double value) {
 		return getNonDefaultableLIBORModel().getRandomVariableForConstant(value);
 	}
-
 
 
 	// -------------------------------------------------------------------- Private Methods: --------------------------------------------------------------------------

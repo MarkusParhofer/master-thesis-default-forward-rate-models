@@ -14,6 +14,7 @@ import java.util.concurrent.FutureTask;
 import info.quantlab.masterthesis.defaultablecovariancemodels.DefaultableLIBORCovarianceModel;
 import info.quantlab.masterthesis.defaultablelibormodels.DefaultableLIBORMarketModel;
 import info.quantlab.masterthesis.functional.FunctionsOnMCProcess;
+import info.quantlab.masterthesis.process.MonteCarloProcessView;
 import net.finmath.exception.CalculationException;
 import net.finmath.marketdata.model.AnalyticModel;
 import net.finmath.marketdata.model.curves.DiscountCurve;
@@ -44,6 +45,8 @@ import net.finmath.time.TimeDiscretization;
 public class MultiLIBORVectorModel implements LIBORMarketModel {
 
 	private final DefaultableLIBORMarketModel[] _defaultableLIBORModels;
+
+	private transient MonteCarloProcess[] _processesOfAllModel = null;
 	
 	private final LIBORMarketModel _nonDefaultableLIBORModel;
 
@@ -366,7 +369,8 @@ public class MultiLIBORVectorModel implements LIBORMarketModel {
 		RandomVariable[] realizations = new RandomVariable[getDefaultableModel(modelIndex).getNumberOfComponents()];
 		for(int i =0; i < getNumberOfLiborPeriods(); i++) {
 			realizations[i] = realizationAtTimeIndex[i];
-			realizations[i + getNumberOfLiborPeriods()] = realizationAtTimeIndex[i + getFirstComponentOfDefaultableModel(modelIndex)];
+			final int FirstComponent = getFirstComponentOfDefaultableModel(modelIndex);
+			realizations[i + getNumberOfLiborPeriods()] = realizationAtTimeIndex[i + FirstComponent];
 		}
 		return bringFactorLoadingsInRightPosition(getDefaultableModel(modelIndex).getFactorLoading(getDefaultableProcess(process, modelIndex), timeIndex, componentIndex, realizations), modelIndex);
 	}
@@ -431,15 +435,28 @@ public class MultiLIBORVectorModel implements LIBORMarketModel {
 	}
 
 	public MonteCarloProcess getNonDefaultableProcess(MonteCarloProcess process) {
-		return FunctionsOnMCProcess.getComponentReducedMCProcess(process, 0, getNumberOfLiborPeriods());
+		if(_processesOfAllModel == null) {
+			_processesOfAllModel = new MonteCarloProcess[getNumberOfDefaultableModels() + 1];
+		}
+		if(_processesOfAllModel[0] == null) {
+			_processesOfAllModel[0] = FunctionsOnMCProcess.getComponentReducedMCProcess(process, 0, getNumberOfLiborPeriods());
+		}
+		return _processesOfAllModel[0];
 	}
 	
 	public MonteCarloProcess getDefaultableProcess(MonteCarloProcess process, int liborModelIndex) {
-		MonteCarloProcess defaultableProcess = FunctionsOnMCProcess.getComponentReducedMCProcess(
-				process, 
-				getFirstComponentOfDefaultableModel(liborModelIndex), 
-				getLastComponentOfDefaultableModel(liborModelIndex));
-		return FunctionsOnMCProcess.getCombinedMCProcess(getNonDefaultableProcess(process), defaultableProcess);
+		if(_processesOfAllModel == null) {
+			_processesOfAllModel = new MonteCarloProcess[getNumberOfDefaultableModels() + 1];
+		}
+		if(_processesOfAllModel[liborModelIndex + 1] == null) {
+			int[] components = new int[getDefaultableModel(liborModelIndex).getNumberOfComponents()];
+			int i=0;
+			for(; i < getNonDefaultableModel().getNumberOfComponents(); i++) components[i] = i;
+			for(int j=0; i < components.length; i++, j++)
+				components[i] = getFirstComponentOfDefaultableModel(liborModelIndex) + j;
+			_processesOfAllModel[liborModelIndex + 1] = new MonteCarloProcessView(process, components);
+		}
+		return _processesOfAllModel[liborModelIndex + 1];
 	}
 
 	@Override

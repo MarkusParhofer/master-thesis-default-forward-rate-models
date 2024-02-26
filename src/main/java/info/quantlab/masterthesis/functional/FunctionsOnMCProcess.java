@@ -130,6 +130,7 @@ public class FunctionsOnMCProcess {
 	 * @return A combined MonteCarloProcess that gives the values of the one process for the first component indices and that of another for 
 	 * higher component indices.
 	 */
+	@Deprecated
 	public static MonteCarloProcess getCombinedMCProcess(MonteCarloProcess firstProcess, MonteCarloProcess secondProcess) {
 		if(firstProcess.getStochasticDriver() != secondProcess.getStochasticDriver() && !firstProcess.getStochasticDriver().equals(secondProcess.getStochasticDriver()))
 			throw new IllegalArgumentException("first and second Process must use the same stochastic driver!");

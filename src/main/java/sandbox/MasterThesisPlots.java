@@ -12,6 +12,7 @@ import info.quantlab.masterthesis.products.DefaultableCouponBondForward;
 import net.finmath.exception.CalculationException;
 import net.finmath.montecarlo.BrownianMotion;
 import net.finmath.montecarlo.BrownianMotionFromMersenneRandomNumbers;
+import net.finmath.montecarlo.BrownianMotionView;
 import net.finmath.montecarlo.RandomVariableFromDoubleArray;
 import net.finmath.montecarlo.assetderivativevaluation.models.BlackScholesModel;
 import net.finmath.montecarlo.interestrate.LIBORMarketModel;
@@ -20,6 +21,8 @@ import net.finmath.montecarlo.interestrate.LIBORMonteCarloSimulationFromLIBORMod
 import net.finmath.montecarlo.process.EulerSchemeFromProcessModel;
 import net.finmath.montecarlo.process.MonteCarloProcess;
 import net.finmath.plots.GraphStyle;
+import net.finmath.plots.Plotable2D;
+import net.finmath.plots.PlotablePoints2D;
 import net.finmath.stochastic.RandomVariable;
 import net.finmath.stochastic.Scalar;
 import net.finmath.time.TimeDiscretization;
@@ -32,6 +35,7 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.Callable;
 
 @SuppressWarnings("unused")
 public class MasterThesisPlots extends Time {
@@ -41,6 +45,99 @@ public class MasterThesisPlots extends Time {
         // creditorModel();
         // debtorModel();
         createCreditorAndPayerDefaultablePlot();
+    }
+
+    public static void createTimingPlotDefModel() throws CalculationException {
+        /*
+        Map<String, Object> properties = new HashMap<>();
+
+        properties.put("fixingTimes", new double[] {0.5, 1.0, 2.0, 4.0, 8.0, 25.0});
+        properties.put("liborPeriodLength", 0.5);
+        properties.put("numberOfLiborPeriods", 20);
+        properties.put("stateSpace", "NORMAL");
+        properties.put("measure", "SPOT");
+
+        properties.put("covarianceModel", DefaultableLIBORModelFactory.CovarianceModel.BLENDED);
+        properties.put("numberOfFactors", 5);
+        properties.put("volatilityParams", new double[] {0.02, 0.0, 0.25, 0.15});
+        properties.put("correlationDecayParam", 0.2);
+        properties.put("displacement", 0.0001);
+        properties.put("initialRatesNonDefaultable", new double[] {0.025, 0.023, 0.028, 0.031, 0.031, 0.032});
+        properties.put("simulationTimeDelta", 0.01);
+
+        properties.put("numberOfExtraFactors", 3);
+        properties.put("initialRatesDefaultable", new double[] {0.032, 0.036, 0.039, 0.04, 0.04, 0.043});
+        properties.put("simulationModel", "SPREADS");
+        properties.put("stateSpaceOfSpread", "LOGNORMAL");
+        properties.put("freeParamsSeed", 1030);
+        properties.put("freeParamsRange", 0.6);
+
+        // Simulation:
+        properties.put("numberOfPaths", 500);
+        properties.put("brownianMotionSeed", 30312);
+        properties.put("numericalScheme", DefaultableLIBORModelFactory.Scheme.EULER_FUNCTIONAL);
+        */
+        // Plot
+        final double[] paths = new double[] {500.0, 750.0, 1000.0, 1500.0, 2000.0, 3000.0, 4000.0, 5000.0, 7500.0, 10000.0, 12500.0, 15000.0}; //, 20000.0, 50000.0};
+        final int[] pathsL = new int[] {500, 750, 1000, 1500, 2000, 3000, 4000, 5000, 7500, 10000, 12500, 15000, 20000, 50000 };
+        final int howManyNumbers = paths.length;
+        final double[] timesDefModel = { 3230.0, 2891.0, 3660.0, 5719.0, 7560.0, 11324.0, 17111.0, 19318.0, 31185.0, 47956.0, 55509.0, 76337.0}; //, 0.0, 0.0 };
+        final double[] timesNonDefModel = { 585.0, 607.0, 769.0, 1032.0, 1600.0, 2435.0, 3176.0, 4062.0, 5447.0, 7435.0, 9202.0, 14842.0}; //, 0.0, 0.0 };
+        /*
+        Runnable Printer = () -> {
+            System.out.print("timesDefModel = { ");
+            for(int i=0; i < howManyNumbers - 1; i++) {
+                System.out.print(timesDefModel[i] + ", ");
+            }
+            System.out.print(timesDefModel[howManyNumbers - 1] + " };\n");
+
+            System.out.print("timesNonDefModel = { ");
+            for(int i=0; i < howManyNumbers - 1; i++) {
+                System.out.print(timesNonDefModel[i] + ", ");
+            }
+            System.out.print(timesNonDefModel[howManyNumbers - 1] + " };\n");
+        };
+        DefaultableLIBORModelFactory factory = new DefaultableLIBORModelFactory();
+        factory.setProperties(properties);
+        LIBORMarketModel baseModel= factory.createBaseModel();
+        DefaultableLIBORMarketModel model = factory.createDefaultableModel(baseModel);
+        for(int j=0; j < howManyNumbers; j++) {
+            // Create defaultable model
+            properties.put("numberOfPaths", pathsL[j]);
+            factory.setProperties(properties);
+            try {
+                tic();
+                MonteCarloProcess process = factory.createNumericalScheme(model);
+                model.getLIBOR(process, 9, 10);
+                timesDefModel[j] = (double)(toc() / 1000000L);
+            } catch(Exception ex) {
+                ex.printStackTrace();
+                System.out.println("\n\nExited at j=" + j + " checking defaulable model!");
+                Printer.run();
+            }
+            try {
+                tic();
+                MonteCarloProcess process = factory.createNumericalScheme(baseModel);
+                baseModel.getLIBOR(process, 9, 10);
+                timesNonDefModel[j] = (double)(toc() / 1000000L);
+            } catch(Exception ex) {
+                ex.printStackTrace();
+                System.out.println("\n\nExited at j=" + j + " checking base model!");
+                Printer.run();
+            }
+        }
+        Printer.run();*/
+        GraphStyle gsDef = new GraphStyle(new Rectangle(-3, -3, 6, 6), new BasicStroke(2.0f), EasyPlot2D.getDefaultColor(0));
+        GraphStyle gsNonDef = new GraphStyle(new Ellipse2D.Double(-3.0, -3.0, 6.0, 6.0), new BasicStroke(2.0f), EasyPlot2D.getDefaultColor(1));
+        Plotable2D plotableDef = PlotablePoints2D.of("Defaultable Model", paths, timesDefModel, gsDef);
+        Plotable2D plotableNonDef = PlotablePoints2D.of("Non Defaultable Model", paths, timesNonDefModel, gsNonDef);
+        EasyPlot2D plot = new EasyPlot2D(plotableDef);
+        plot.addPlot(plotableNonDef);
+        plot.setYAxisLabel("Time in Millis");
+        plot.setXAxisLabel("Number of Paths");
+        plot.setTitle("Comparison of Calculation Time");
+        plot.setIsLegendVisible(true);
+        plot.show();
     }
 
     public static void creditorModel() throws CalculationException {
@@ -214,7 +311,13 @@ public class MasterThesisPlots extends Time {
         factory.setProperties(properties);
 
         MonteCarloProcess process = factory.createNumericalScheme(multiModel);
-        MonteCarloProcess secProcess = factory.createNumericalScheme(modelDebtor);
+        BrownianMotion motion2 = (BrownianMotion) process.getStochasticDriver();
+        Integer[] factors = new Integer[modelDebtor.getNumberOfFactors()];
+        for(int i=0; i < base.getNumberOfFactors(); i++) factors[i] = i;
+        for(int i=base.getNumberOfFactors(); i < modelDebtor.getNumberOfFactors(); i++)
+            factors[i] = i + multiModel.getDefaultableModel(0).getNumberOfFactors() - base.getNumberOfFactors();
+        motion2 = new BrownianMotionView((BrownianMotion) process.getStochasticDriver(), factors);
+        MonteCarloProcess secProcess = new EulerSchemeFromProcessModel(modelDebtor, motion2, EulerSchemeFromProcessModel.Scheme.EULER_FUNCTIONAL);
 
         double[] couponRates = new double[5];
         Arrays.fill(couponRates, 0.03 * 0.5);

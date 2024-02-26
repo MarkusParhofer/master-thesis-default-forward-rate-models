@@ -66,10 +66,9 @@ public class ModelFromSpreadTest extends info.quantlab.debug.Time{
 	{
 		return Arrays.asList(new Object[][] {
 			// Put here an array of arrays where each array represents input for the constructor
-			{"Run 0: Baseline",						0.01, 		2, "SPREADS",	"EULER_FUNCTIONAL",			"SPOT", 	new double[] { 0.04, 0.049, 0.062, 0.049, 0.044, 0.031 }, 0},
-			
+			{"Run 0: Modelling Spreads",					0.01, 		2, "SPREADS",	"EULER_FUNCTIONAL",			"SPOT", 	new double[] { 0.04, 0.049, 0.062, 0.049, 0.044, 0.031 }, 0},
 			// For now the most stable version:
-			//{"Run 1: Modelling defaultable LIBORs", 		 0.001, 	2, "LIBORS", 	"EULER",					"SPOT", 	new double[] { 0.04, 0.049, 0.062, 0.049, 0.044, 0.031 }, 1},
+			{"Run 1: Modelling defaultable LIBORs", 		 0.01, 	2, "LIBORS", 	"EULER",					"SPOT", 	new double[] { 0.04, 0.049, 0.062, 0.049, 0.044, 0.031 }, 1},
 			
 			//{"Run 2: Modelling Spreads Milstein", 	0.01, 		2, "SPREADS", 	"MILSTEIN_FDCENTRAL",		"SPOT", 	new double[] { 0.04, 0.049, 0.062, 0.049, 0.044, 0.031 }, 2},
 			//{"Run 2: Spread with normal model",		0.001, 	2, "SPREADS",	"NORMAL",		"SPOT", 	new double[] { 0.04, 0.049, 0.062, 0.049, 0.044, 0.031 }, 0},
