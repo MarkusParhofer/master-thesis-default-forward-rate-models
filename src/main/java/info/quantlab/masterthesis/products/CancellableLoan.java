@@ -19,19 +19,26 @@ import java.util.Arrays;
 
 public class CancellableLoan extends LoanProduct {
 
-    final TimeDiscretization _tenor;
+    private final TimeDiscretization _tenor;
 
-    final double[] _coupons;
+    private final double[] _coupons;
 
-    final double _maturityTime;
+    private final double _maturityTime;
 
-    final int _creditorIndex;
+    private final int _creditorIndex;
 
-    final int _debtorIndex;
+    private final int _debtorIndex;
 
-    final double _redemption;
+    private final double _redemption;
 
-    final Perspective _stoppingPerspective;
+    private final Perspective _stoppingPerspective;
+
+    private transient RandomVariable _loanValue;
+
+    private transient RandomVariable _optionValue;
+
+    private transient MonteCarloProcess _mcProcessCache;
+
 
     public CancellableLoan(TimeDiscretization tenor, double[] coupons, double maturityTime, double redemption, int creditorIndex, int debtorIndex, Perspective valuationPerspective, Perspective stoppingPerspective) {
         super(valuationPerspective);
@@ -51,29 +58,46 @@ public class CancellableLoan extends LoanProduct {
 
     @Override
     public RandomVariable getValue(double evaluationTime, MultiLIBORVectorModel market, MonteCarloProcess process) throws CalculationException {
-        RandomVariable loan = market.getRandomVariableForConstant(0.0);
+
+        return getLoanValue(market, process).sub(getOptionValue(market,process));
+    }
+
+    public RandomVariable getLoanValue(MultiLIBORVectorModel market, MonteCarloProcess process) throws CalculationException {
+        if(_loanValue != null && _mcProcessCache == process) {
+            return _loanValue;
+        }
+
+        _mcProcessCache = process;
+        _loanValue = market.getRandomVariableForConstant(0.0);
         int i=0;
         for(double time: _tenor) {
             RandomVariable cashflow = market.getRandomVariableForConstant(_coupons[i++]);
             switch (getValuationPerspective()) {
-                case DEBTOR:
-                case MARKET_IMPLIED:
-                    cashflow = cashflow.div(market.getDefaultableNumeraire(process, time, _debtorIndex));
                 case CREDITOR:
                     cashflow = cashflow.mult(market.getSurvivalProbability(process, time, _creditorIndex));
+                case DEBTOR:
+                case MARKET_IMPLIED:
+                cashflow = cashflow.div(market.getDefaultableNumeraire(process, time, _debtorIndex));
                     break;
             }
-            loan = loan.add(cashflow);
+            _loanValue = _loanValue.add(cashflow);
         }
+        return _loanValue;
+    }
+
+
+    public RandomVariable getOptionValue(MultiLIBORVectorModel market, MonteCarloProcess process) throws CalculationException {
+        if(_optionValue != null && _mcProcessCache == process)
+            return _optionValue;
 
         int matIndex = _tenor.getTimeIndex(_maturityTime);
-        if(i < 0) {
-            i = - i - 1;
+        if(matIndex < 0) {
+            matIndex = - matIndex - 1;
         }
         matIndex--;
         RandomVariable newLoan = new RandomVariableFromDoubleArray(0.0);
         RandomVariable stoppingCondition = new RandomVariableFromDoubleArray(0.0);
-        RandomVariable payoff = new RandomVariableFromDoubleArray(0.0);
+        _optionValue = new RandomVariableFromDoubleArray(0.0);
         for(int j=_tenor.getNumberOfTimes() - 1; j > matIndex; j--) {
             if(j != _tenor.getNumberOfTimes() - 1) {
                 ConditionalExpectationEstimator estimator = new MonteCarloConditionalExpectationRegression(getBasisFunctions(_tenor.getTime(j), market, process));
@@ -83,11 +107,11 @@ public class CancellableLoan extends LoanProduct {
                 // Subtract redemption (redemption needs to be discounted)
                 RandomVariable redemption = market.getRandomVariableForConstant(_redemption);
                 switch (_stoppingPerspective) {
+                    case CREDITOR:
+                        redemption = redemption.mult(market.getSurvivalProbability(process, _tenor.getTime(j), _creditorIndex));
                     case DEBTOR:
                     case MARKET_IMPLIED:
                         redemption = redemption.div(market.getDefaultableNumeraire(process, _tenor.getTime(j), _debtorIndex));
-                    case CREDITOR:
-                        redemption = redemption.mult(market.getSurvivalProbability(process, _tenor.getTime(j), _creditorIndex));
                         break;
                 }
                 expectationStoppingCond = expectationStoppingCond.sub(redemption);
@@ -98,11 +122,11 @@ public class CancellableLoan extends LoanProduct {
                     expectationLoan = estimator.getConditionalExpectation(newLoan);
                     redemption = market.getRandomVariableForConstant(_redemption);
                     switch (_stoppingPerspective) {
+                        case CREDITOR:
+                            redemption = redemption.mult(market.getSurvivalProbability(process, _tenor.getTime(j), _creditorIndex));
                         case DEBTOR:
                         case MARKET_IMPLIED:
                             redemption = redemption.div(market.getDefaultableNumeraire(process, _tenor.getTime(j), _debtorIndex));
-                        case CREDITOR:
-                            redemption = redemption.mult(market.getSurvivalProbability(process, _tenor.getTime(j), _creditorIndex));
                             break;
                     }
                     expectationLoan = expectationLoan.sub(redemption);
@@ -112,7 +136,7 @@ public class CancellableLoan extends LoanProduct {
 
 
                 // Check if stopping condition is met (i.e. K - E[sum(c_i)](omega) > 0)
-                payoff = payoff.apply(
+                _optionValue = _optionValue.apply(
                         (payoffBefore, payoffCondExp, stopCondition)-> {
                             if(stopCondition > 0.0) return payoffCondExp;
                             else return payoffBefore;},
@@ -120,11 +144,11 @@ public class CancellableLoan extends LoanProduct {
             }
             RandomVariable cashflow = market.getRandomVariableForConstant(_coupons[j]);
             switch (getValuationPerspective()) {
+                case CREDITOR:
+                    cashflow = cashflow.mult(market.getSurvivalProbability(process, _tenor.getTime(j), _creditorIndex));
                 case DEBTOR:
                 case MARKET_IMPLIED:
                     cashflow = cashflow.div(market.getDefaultableNumeraire(process, _tenor.getTime(j), _debtorIndex));
-                case CREDITOR:
-                    cashflow = cashflow.mult(market.getSurvivalProbability(process, _tenor.getTime(j), _creditorIndex));
                     break;
             }
             newLoan = newLoan.add(cashflow);
@@ -134,18 +158,17 @@ public class CancellableLoan extends LoanProduct {
             } else {
                 RandomVariable cashflow2 = market.getRandomVariableForConstant(_coupons[j]);
                 switch (_stoppingPerspective) {
+                    case CREDITOR:
+                        cashflow2 = cashflow2.mult(market.getSurvivalProbability(process, _tenor.getTime(j), _creditorIndex));
                     case DEBTOR:
                     case MARKET_IMPLIED:
                         cashflow2 = cashflow2.div(market.getDefaultableNumeraire(process, _tenor.getTime(j), _debtorIndex));
-                    case CREDITOR:
-                        cashflow2 = cashflow2.mult(market.getSurvivalProbability(process, _tenor.getTime(j), _creditorIndex));
                         break;
                 }
                 stoppingCondition = stoppingCondition.add(cashflow2);
             }
         }
-
-        return loan.add(payoff);
+        return _optionValue;
     }
 
     @Override

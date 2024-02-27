@@ -120,8 +120,21 @@ public class MasterThesisPlots extends Time {
         CancellableLoan loanDD = new CancellableLoan(loanTenor, coupons, 4.5, nominal, 0, 1, LoanProduct.Perspective.DEBTOR, LoanProduct.Perspective.DEBTOR);
         tic();
         System.out.println("Loan Cred Cred    Loan Cred Debt    Loan Debt Debt");
-        System.out.printf("%14.7f    %14.7f    %14.7f", loanCC.getValue(0.0, multiModel, process).getAverage(), loanCD.getValue(0.0, multiModel, process).getAverage(), loanDD.getValue(0.0, multiModel, process).getAverage());
+        System.out.printf("%14.7f    %14.7f    %14.7f%n", loanCC.getValue(0.0, multiModel, process).getAverage(), loanCD.getValue(0.0, multiModel, process).getAverage(), loanDD.getValue(0.0, multiModel, process).getAverage());
         toc();
+
+        System.out.printf("%14.7f    %14.7f    %14.7f%n", loanCC.getLoanValue(multiModel, process).getAverage(), loanCD.getLoanValue(multiModel, process).getAverage(), loanDD.getLoanValue(multiModel, process).getAverage());
+        System.out.printf("%14.7f    %14.7f    %14.7f%n", loanCC.getOptionValue(multiModel, process).getAverage(), loanCD.getOptionValue(multiModel, process).getAverage(), loanDD.getOptionValue(multiModel, process).getAverage());
+
+        System.out.println();
+        System.out.println("Survival Probabilities t=0.5, ..., 8.0");
+        System.out.println("Creditor           Debtor             ");
+        for(double time: loanTenor) {
+            final double creditorProb = multiModel.getSurvivalProbability(process, time, 0).getAverage() * 100.0;
+            final double debtorProb = multiModel.getSurvivalProbability(process, time, 1).getAverage() * 100.0;
+            System.out.printf("%6.2f             %6.2f%n", creditorProb, debtorProb);
+        }
+
     }
 
     public static void createTimingPlotDefModel() throws CalculationException {
