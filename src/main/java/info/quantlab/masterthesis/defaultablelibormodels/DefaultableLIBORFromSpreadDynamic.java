@@ -597,9 +597,9 @@ public class DefaultableLIBORFromSpreadDynamic  extends AbstractProcessModel imp
 	public RandomVariable getDefaultableLIBOR(MonteCarloProcess process, int timeIndex, int liborIndex) throws CalculationException {
 		if(timeIndex == 0 || getLiborPeriod(liborIndex) == 0d)
 			return getRandomVariableForConstant(getForwardRateCurve().getForward( getAnalyticModel(), getLiborPeriod(liborIndex)));
-		
+
 		if (simulationModel == SimulationModel.SPREADS)
-			return process.getProcessValue(timeIndex, liborIndex).add(process.getProcessValue( timeIndex, getSpreadComponentIndex(liborIndex)));
+			return getNonDefaultableLIBOR(process, timeIndex, liborIndex).add(process.getProcessValue( timeIndex, getSpreadComponentIndex(liborIndex)));
 		else
 			return process.getProcessValue(timeIndex, getDefaultableComponentIndex(liborIndex));
 	}
@@ -756,8 +756,8 @@ public class DefaultableLIBORFromSpreadDynamic  extends AbstractProcessModel imp
 	@Override
 	public RandomVariable getSurvivalProbability(MonteCarloProcess process, double maturity) throws CalculationException {
 		// We calculate the Survival Probability per path. We do not measure default other than by its probability
-		RandomVariable defaultableNumeraire = getDefaultableNumeraire(process, maturity);
 		RandomVariable normalNumeraire = getNumeraire(process, maturity);
+		RandomVariable defaultableNumeraire = getDefaultableNumeraire(process, maturity);
 		return normalNumeraire.div(defaultableNumeraire);
 	}
 
@@ -971,7 +971,7 @@ public class DefaultableLIBORFromSpreadDynamic  extends AbstractProcessModel imp
 			}
 		}
 		else if (measure == Measure.SPOT) {
-			numeraireUnadjusted = getDefaultableNumeraireUnadjustedAtLIBORIndex(process, upperIndex);
+			numeraireUnadjusted = getDefaultableNumeraireUnadjusted(process, getLiborPeriod(upperIndex));
 		}
 		else {
 			throw new IllegalArgumentException("Numeraire not implemented for specified measure.");

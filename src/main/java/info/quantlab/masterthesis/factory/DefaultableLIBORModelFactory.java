@@ -312,7 +312,10 @@ public class DefaultableLIBORModelFactory {
 		/*
 		 * Create a simulation time discretization. We save space by just simulationg to the last fixing time.
 		 */
-		final int numberOfTimes = (int)(liborPeriods.getTime(liborPeriods.getNumberOfTimeSteps() - 1)/simulationTimeDelta);
+		int numberOfTimes = (int)(liborPeriods.getTime(liborPeriods.getNumberOfTimeSteps() - 1)/simulationTimeDelta);
+		if(numberOfTimes * simulationTimeDelta < liborPeriods.getTime(liborPeriods.getNumberOfTimeSteps() - 1)) {
+			numberOfTimes++;
+		}
 		final TimeDiscretization timeDiscretization = new TimeDiscretizationFromArray(0.0, numberOfTimes, simulationTimeDelta);
 
 		/*

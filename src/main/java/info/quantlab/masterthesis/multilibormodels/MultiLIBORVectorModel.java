@@ -12,6 +12,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.FutureTask;
 
 import info.quantlab.masterthesis.defaultablecovariancemodels.DefaultableLIBORCovarianceModel;
+import info.quantlab.masterthesis.defaultablelibormodels.DefaultableLIBORFromSpreadDynamic;
 import info.quantlab.masterthesis.defaultablelibormodels.DefaultableLIBORMarketModel;
 import info.quantlab.masterthesis.functional.FunctionsOnMCProcess;
 import info.quantlab.masterthesis.process.MonteCarloProcessView;
@@ -100,6 +101,67 @@ public class MultiLIBORVectorModel implements LIBORMarketModel {
 	
 	public RandomVariable getDefaultableLIBOR(MonteCarloProcess process, int timeIndex, int liborPeriodIndex, int liborModelIndex) throws CalculationException {
 		return getDefaultableModel(liborModelIndex).getDefaultableLIBOR(getDefaultableProcess(process, liborModelIndex), timeIndex, liborPeriodIndex);
+	}
+
+	/**
+	 * Gets the spread for a defaultable model for a LIBOR period (model primitive or almost): L^{d m}_i(t) - L_i(t).
+	 * @param process 			The Process simulating this model.
+	 * @param timeIndex			The evaluation time index associated with the process.
+	 * @param liborPeriodIndex	The index of the LIBOR period, which the spread should correspond to.
+	 * @param liborModelIndex	The index of the defaultable model to get the spread for.
+	 * @return					The spread of the defaultable model for the specified LIBOR period.
+	 * @throws CalculationException If the calculation failed.
+	 */
+	public RandomVariable getLIBORSpreadAtGivenTimeIndex(MonteCarloProcess process, int timeIndex, int liborPeriodIndex, int liborModelIndex) throws CalculationException {
+		return getDefaultableModel(liborModelIndex).getLIBORSpreadAtGivenTimeIndex(getDefaultableProcess(process, liborModelIndex), timeIndex, liborPeriodIndex);
+	}
+
+	/**
+	 * Gets the spread for a defaultable model to another defaultable model: L^{d m1}_i(t) - L^{d m2}_i(t).
+	 * @param process 			The Process simulating this model.
+	 * @param timeIndex			The evaluation time index associated with the process.
+	 * @param liborPeriodIndex	The index of the LIBOR period, which the spread should correspond to.
+	 * @param liborModelIndex1	The index of the defaultable model to get the spread for.
+	 * @return					The spread of the defaultable model for the specified LIBOR period.
+	 * @throws CalculationException If the calculation failed.
+	 */
+	public RandomVariable getLIBORSpreadAtGivenTimeIndexForDefModels(MonteCarloProcess process, int timeIndex, int liborPeriodIndex, int liborModelIndex1, int liborModelIndex2) throws CalculationException {
+		final RandomVariable spread1 = getLIBORSpreadAtGivenTimeIndex(process, timeIndex, liborPeriodIndex, liborModelIndex1);
+		final RandomVariable spread2 = getLIBORSpreadAtGivenTimeIndex(process, timeIndex, liborPeriodIndex, liborModelIndex2);
+		return spread1.sub(spread2);
+	}
+
+
+	/**
+	 * Gets the spread for a defaultable model.
+	 * @param process 			The Process simulating this model.
+	 * @param time 				The evaluation time.
+	 * @param periodStart 		The start of the period to get the spread for.
+	 * @param periodEnd			The end of the period to get the spread for.
+	 * @param liborModelIndex	The index of the defaultable model to get the spread for.
+	 * @return					The spread of the defaultable model for the specified period.
+	 * @throws CalculationException If the calculation failed.
+	 */
+	public RandomVariable getSpread(MonteCarloProcess process, double time, double periodStart, double periodEnd, int liborModelIndex) throws CalculationException {
+		return getDefaultableModel(liborModelIndex).getSpread(getDefaultableProcess(process, liborModelIndex), time, periodStart, periodEnd);
+	}
+
+	/**
+	 * Gets the spread between two defaultable models. Note that this might be below zero! The specification is (L^d^m1(t;T_s, T_e) - L^d^m2(t;T_s, T_e)),
+	 * where m1=liborModelIndex1, m2=liborModelIndex2, T_s=periodStart, T_e=periodEnd
+	 * @param process 			The Process simulating this model
+	 * @param time 				The evaluation time
+	 * @param periodStart 		The start of the period to get the spread for
+	 * @param periodEnd			The end of the period to get the spread for
+	 * @param liborModelIndex1	The index of the first defaultable model to get the spread for
+	 * @param liborModelIndex2	The index of the defaultable model to get the spread for
+	 * @return					The spread of the defaultable model for the specified period
+	 * @throws CalculationException If the calculation failed
+	 */
+	public RandomVariable getSpreadBetweenDefaultableModels(MonteCarloProcess process, double time, double periodStart, double periodEnd, int liborModelIndex1, int liborModelIndex2) throws CalculationException {
+		final RandomVariable fr1 = getDefaultableModel(liborModelIndex1).getForwardRate(getDefaultableProcess(process, liborModelIndex1), time, periodStart, periodEnd);
+		final RandomVariable fr2 = getDefaultableModel(liborModelIndex2).getForwardRate(getDefaultableProcess(process, liborModelIndex2), time, periodStart, periodEnd);
+		return fr1.sub(fr2);
 	}
 	
 	@Override

@@ -37,7 +37,11 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Scanner;
 import java.util.concurrent.Callable;
+import java.util.function.Function;
+
+import static info.quantlab.easyplot.PlotRunner.runConfigLoop;
 
 @SuppressWarnings("unused")
 public class MasterThesisPlots extends Time {
@@ -46,16 +50,29 @@ public class MasterThesisPlots extends Time {
     public static void main(String[] args) throws CalculationException {
         // creditorModel();
         // debtorModel();
-        createCancellableLoanPlot();
+        runConfigLoop(createSurvivalProbabilityPlot());
     }
 
-    public static void createCancellableLoanPlot() throws CalculationException {
+    public static void createDependencePlots() throws CalculationException {
+
+            // Try out new Plot constructor
+            double[] x = new double[] {1,2,3,4,5,6,7,8,9,9,10};
+            double[][] y = new double[3][x.length];
+            for (int i = 0; i < x.length; i++) {
+                y[0][i] = x[i] * 2;
+                y[1][i] = x[i] * 3;
+                y[2][i] = x[i] * 4;
+            }
+            EasyPlot2D plotMe = new EasyPlot2D(x, y);
+            plotMe.show();
+
+
         DefaultableLIBORModelFactory factory = new DefaultableLIBORModelFactory();
         Map<String, Object> properties = new HashMap<>();
 
         properties.put("fixingTimes", new double[] {0.5, 1.0, 2.0, 4.0, 8.0, 25.0});
-        properties.put("liborPeriodLength", 0.5);
-        properties.put("numberOfLiborPeriods", 20);
+        properties.put("liborPeriodLength", 1.0);
+        properties.put("numberOfLiborPeriods", 10);
         properties.put("stateSpace", "NORMAL");
         properties.put("measure", "SPOT");
 
@@ -65,7 +82,133 @@ public class MasterThesisPlots extends Time {
         properties.put("correlationDecayParam", 0.2);
         properties.put("displacement", 0.0001);
         properties.put("initialRatesNonDefaultable", new double[] {0.025, 0.023, 0.028, 0.031, 0.031, 0.032});
-        properties.put("simulationTimeDelta", 0.01);
+        properties.put("simulationTimeDelta", 0.02);
+
+        factory.setProperties(properties);
+
+        LIBORMarketModel base = factory.createBaseModel();
+
+        // Def Model 1: Creditor (lower Covariance and lower Spread):
+        properties.put("numberOfExtraFactors", 2);
+        properties.put("initialRatesDefaultable", new double[] {0.03, 0.03, 0.031, 0.033, 0.034, 0.036});
+        properties.put("simulationModel", "SPREADS");
+        properties.put("stateSpaceOfSpread", "LOGNORMAL");
+        properties.put("freeParamsSeed", 33);
+        properties.put("freeParamsRange", 0.4);
+        factory.setProperties(properties);
+
+        DefaultableLIBORMarketModel modelCreditor = factory.createDefaultableModel(base);
+
+        // Def Model 2: Debtor (lower Covariance and lower Spread):
+        properties.put("numberOfExtraFactors", 3);
+        properties.put("initialRatesDefaultable", new double[] {0.04, 0.043, 0.042, 0.044, 0.045, 0.043});
+        properties.put("simulationModel", "SPREADS");
+        properties.put("stateSpaceOfSpread", "LOGNORMAL");
+        properties.put("freeParamsSeed", 1030);
+        properties.put("freeParamsRange", 0.7);
+        factory.setProperties(properties);
+
+        // Simulation:
+        properties.put("numberOfPaths", 10000);
+        properties.put("brownianMotionSeed", 30312);
+        properties.put("numericalScheme", DefaultableLIBORModelFactory.Scheme.EULER_FUNCTIONAL);
+        factory.setProperties(properties);
+
+        DefaultableLIBORMarketModel modelDebtor = factory.createDefaultableModel(base);
+
+        final int lastTimeIndex = base.getCovarianceModel().getTimeDiscretization().getNumberOfTimeSteps();
+        final int numberOfXPoints = 30;
+        final int numberOfPlots = 5;
+        final double[][] xPoints = new double[numberOfPlots][numberOfXPoints];
+        {
+            final int possibleCombis = 8;
+            final double[][] yPointsPlot0 = new double[possibleCombis][numberOfXPoints]; // Covariance and Variance
+            final double[][] yPointsPlot1 = new double[4][numberOfXPoints]; // Correlation
+
+            // Plot Creditor Debtor Variance: x = freeParamsRangeD, x = freeParamsRangeC, x = spreadCreditor, x = spreadDebtor, x = spreadDebtor and Creditor
+            // First X: freeParamsRangeD
+            final double startX0 = 0.05;
+            final double deltaX0 = 0.05;
+            for (int i = 0; i < numberOfXPoints; i++) {
+                xPoints[0][i] = startX0 + i * deltaX0;
+                properties.put("numberOfExtraFactors", 2);
+                properties.put("initialRatesDefaultable", new double[]{0.03, 0.03, 0.031, 0.033, 0.034, 0.036});
+                properties.put("simulationModel", "SPREADS");
+                properties.put("stateSpaceOfSpread", "LOGNORMAL");
+                properties.put("freeParamsSeed", 33);
+                properties.put("freeParamsRange", xPoints[0][i]);
+                factory.setProperties(properties);
+
+                DefaultableLIBORMarketModel modelCreditorF = factory.createDefaultableModel(base);
+
+                properties.put("numberOfExtraFactors", 3);
+                properties.put("initialRatesDefaultable", new double[]{0.04, 0.043, 0.042, 0.044, 0.045, 0.043});
+                properties.put("simulationModel", "SPREADS");
+                properties.put("stateSpaceOfSpread", "LOGNORMAL");
+                properties.put("freeParamsSeed", 1030);
+                properties.put("freeParamsRange", xPoints[0][i]);
+                factory.setProperties(properties);
+
+                DefaultableLIBORMarketModel modelDebtorF = factory.createDefaultableModel(base);
+                MultiLIBORVectorModel multiModel = new MultiLIBORVectorModel(new DefaultableLIBORMarketModel[]{modelCreditorF, modelDebtorF, modelCreditor, modelDebtor}, base);
+
+                MonteCarloProcess process = factory.createNumericalScheme(multiModel);
+
+                final RandomVariable credF = multiModel.getLIBORSpreadAtGivenTimeIndex(process, lastTimeIndex, 9, 0);
+                final RandomVariable debtF = multiModel.getLIBORSpreadAtGivenTimeIndex(process, lastTimeIndex, 9, 1);
+                final RandomVariable cred = multiModel.getLIBORSpreadAtGivenTimeIndex(process, lastTimeIndex, 9, 2);
+                final RandomVariable debt = multiModel.getLIBORSpreadAtGivenTimeIndex(process, lastTimeIndex, 9, 3);
+
+
+                yPointsPlot0[0][i] = credF.getVariance();
+                yPointsPlot0[1][i] = debtF.getVariance();
+                yPointsPlot0[2][i] = cred.getVariance();
+                yPointsPlot0[3][i] = debt.getVariance();
+
+                yPointsPlot0[4][i] = credF.covariance(debtF).doubleValue();
+                yPointsPlot0[5][i] = debtF.covariance(cred).doubleValue();
+                yPointsPlot0[6][i] = cred.covariance(debt).doubleValue();
+                yPointsPlot0[7][i] = debt.covariance(credF).doubleValue();
+
+                yPointsPlot1[0][i] = yPointsPlot0[4][i] / Math.sqrt(yPointsPlot0[0][i] * yPointsPlot0[1][i]);
+                yPointsPlot1[1][i] = yPointsPlot0[5][i] / Math.sqrt(yPointsPlot0[1][i] * yPointsPlot0[2][i]);
+                yPointsPlot1[2][i] = yPointsPlot0[6][i] / Math.sqrt(yPointsPlot0[2][i] * yPointsPlot0[3][i]);
+                yPointsPlot1[3][i] = yPointsPlot0[7][i] / Math.sqrt(yPointsPlot0[3][i] * yPointsPlot0[0][i]);
+            }
+
+            // Plot result
+            EasyPlot2D plot0 = new EasyPlot2D(xPoints[0], yPointsPlot0);
+            plot0.setTitle("Variance and Covariance");
+            plot0.setIsLegendVisible(true);
+            plot0.setXAxisLabel("Free Parameter range");
+
+            plot0.show();
+        }
+
+        // Plot Creditor Debtor Correlation: x = freeParamsRangeD, x = spreadCreditor, x = spreadDebtor, x = spreadDebtor and Creditor
+
+
+
+    }
+
+
+    public static void createCancellableLoanPlot() throws CalculationException {
+        DefaultableLIBORModelFactory factory = new DefaultableLIBORModelFactory();
+        Map<String, Object> properties = new HashMap<>();
+
+        properties.put("fixingTimes", new double[] {0.5, 1.0, 2.0, 4.0, 8.0, 25.0});
+        properties.put("liborPeriodLength", 0.5);
+        properties.put("numberOfLiborPeriods", 16);
+        properties.put("stateSpace", "NORMAL");
+        properties.put("measure", "SPOT");
+
+        properties.put("covarianceModel", DefaultableLIBORModelFactory.CovarianceModel.BLENDED);
+        properties.put("numberOfFactors", 5);
+        properties.put("volatilityParams", new double[] {0.02, 0.0, 0.25, 0.15});
+        properties.put("correlationDecayParam", 0.2);
+        properties.put("displacement", 0.0001);
+        properties.put("initialRatesNonDefaultable", new double[] {0.025, 0.023, 0.028, 0.031, 0.031, 0.032});
+        properties.put("simulationTimeDelta", 0.02);
 
         factory.setProperties(properties);
 
@@ -94,45 +237,112 @@ public class MasterThesisPlots extends Time {
 
         DefaultableLIBORMarketModel modelDebtor = factory.createDefaultableModel(base);
 
-
-        MultiLIBORVectorModel multiModel = new MultiLIBORVectorModel(new DefaultableLIBORMarketModel[]{modelCreditor, modelDebtor}, base);
-
         // Simulation:
-        properties.put("numberOfPaths", 5000);
-        properties.put("brownianMotionSeed", 30312);
+        properties.put("numberOfPaths", 10000);
+        properties.put("brownianMotionSeed", 30322);
         properties.put("numericalScheme", DefaultableLIBORModelFactory.Scheme.EULER_FUNCTIONAL);
         factory.setProperties(properties);
 
-        MonteCarloProcess process = factory.createNumericalScheme(multiModel);
 
-        final double liborPeriodLength = multiModel.getLiborPeriod(1);
+        final int lastTimeIndex = base.getCovarianceModel().getTimeDiscretization().getNumberOfTimeSteps();
+        final int numberOfXPoints = 20;
+        final int numberOfPlots = 5;
+        final double[][] xPoints = new double[numberOfPlots][numberOfXPoints];
+        String[] plotNames = new String[numberOfPlots];
+        plotNames[0] = "Cost of a cancellable loan in regards to Free Parameters of the debtor";
+        plotNames[1] = "Cost of a cancellable loan in regards to Free Parameters of the creditor";
+        plotNames[2] = "Cost of a cancellable loan in regards to Free Parameters of the both parties";
+        {
+            final double startX0 = 0.2;
+            final double deltaX0 = 0.05;
+            final double[][] yPoints0 = new double[3][numberOfXPoints];
+            final double[][] yPoints1 = new double[3][numberOfXPoints];
+            final double[][] yPoints2 = new double[3][numberOfXPoints];
+            final double liborPeriodLength = base.getLiborPeriod(1);
+            TimeDiscretization loanTenor = new TimeDiscretizationFromArray(liborPeriodLength, 14, liborPeriodLength);
 
-        TimeDiscretization loanTenor = new TimeDiscretizationFromArray(liborPeriodLength, 14, liborPeriodLength);
-        final double[] coupons = new double[15];
-        final double nominal = 1000;
-        for(int i=0; i < 15; i++) {
-            coupons[i] = multiModel.getDefaultableLIBOR(process, 0, i, 1).doubleValue();
-            coupons[i] *= nominal * liborPeriodLength;
-        }
-        coupons[14] += nominal;
-        CancellableLoan loanCC = new CancellableLoan(loanTenor, coupons, 4.5, nominal, 0, 1, LoanProduct.Perspective.CREDITOR, LoanProduct.Perspective.CREDITOR);
-        CancellableLoan loanCD = new CancellableLoan(loanTenor, coupons, 4.5, nominal, 0, 1, LoanProduct.Perspective.CREDITOR, LoanProduct.Perspective.DEBTOR);
-        CancellableLoan loanDD = new CancellableLoan(loanTenor, coupons, 4.5, nominal, 0, 1, LoanProduct.Perspective.DEBTOR, LoanProduct.Perspective.DEBTOR);
-        tic();
-        System.out.println("Loan Cred Cred    Loan Cred Debt    Loan Debt Debt");
-        System.out.printf("%14.7f    %14.7f    %14.7f%n", loanCC.getValue(0.0, multiModel, process).getAverage(), loanCD.getValue(0.0, multiModel, process).getAverage(), loanDD.getValue(0.0, multiModel, process).getAverage());
-        toc();
+            for (int i = 0; i < numberOfXPoints; i++) {
+                xPoints[0][i] = startX0 + i * deltaX0;
+                properties.put("numberOfExtraFactors", 2);
+                properties.put("initialRatesDefaultable", new double[]{0.03, 0.03, 0.031, 0.033, 0.034, 0.036});
+                properties.put("simulationModel", "SPREADS");
+                properties.put("stateSpaceOfSpread", "LOGNORMAL");
+                properties.put("freeParamsSeed", 33);
+                properties.put("freeParamsRange", xPoints[0][i]);
+                factory.setProperties(properties);
 
-        System.out.printf("%14.7f    %14.7f    %14.7f%n", loanCC.getLoanValue(multiModel, process).getAverage(), loanCD.getLoanValue(multiModel, process).getAverage(), loanDD.getLoanValue(multiModel, process).getAverage());
-        System.out.printf("%14.7f    %14.7f    %14.7f%n", loanCC.getOptionValue(multiModel, process).getAverage(), loanCD.getOptionValue(multiModel, process).getAverage(), loanDD.getOptionValue(multiModel, process).getAverage());
+                DefaultableLIBORMarketModel modelCreditorF = factory.createDefaultableModel(base);
 
-        System.out.println();
-        System.out.println("Survival Probabilities t=0.5, ..., 8.0");
-        System.out.println("Creditor           Debtor             ");
-        for(double time: loanTenor) {
-            final double creditorProb = multiModel.getSurvivalProbability(process, time, 0).getAverage() * 100.0;
-            final double debtorProb = multiModel.getSurvivalProbability(process, time, 1).getAverage() * 100.0;
-            System.out.printf("%6.2f             %6.2f%n", creditorProb, debtorProb);
+                properties.put("numberOfExtraFactors", 3);
+                properties.put("initialRatesDefaultable", new double[]{0.04, 0.043, 0.042, 0.044, 0.045, 0.043});
+                properties.put("simulationModel", "SPREADS");
+                properties.put("stateSpaceOfSpread", "LOGNORMAL");
+                properties.put("freeParamsSeed", 1030);
+                properties.put("freeParamsRange", xPoints[0][i]);
+                factory.setProperties(properties);
+
+                DefaultableLIBORMarketModel modelDebtorF = factory.createDefaultableModel(base);
+                MultiLIBORVectorModel multiModel = new MultiLIBORVectorModel(new DefaultableLIBORMarketModel[]{modelCreditorF, modelDebtorF, modelCreditor, modelDebtor}, base);
+
+                MonteCarloProcess process = factory.createNumericalScheme(multiModel);
+
+                final double[] coupons = new double[15];
+                final double nominal = 100;
+                for(int j=0; j < 15; j++) {
+                    coupons[j] = multiModel.getDefaultableLIBOR(process, 0, j, 1).doubleValue();
+                    coupons[j] *= nominal * liborPeriodLength;
+                }
+                coupons[14] += nominal;
+                CancellableLoan loanCC0 = new CancellableLoan(loanTenor, coupons, 4.5, nominal, 2, 1, LoanProduct.Perspective.CREDITOR, LoanProduct.Perspective.CREDITOR);
+                CancellableLoan loanCD0 = new CancellableLoan(loanTenor, coupons, 4.5, nominal, 2, 1, LoanProduct.Perspective.CREDITOR, LoanProduct.Perspective.DEBTOR);
+                CancellableLoan loanDD0 = new CancellableLoan(loanTenor, coupons, 4.5, nominal, 2, 1, LoanProduct.Perspective.DEBTOR, LoanProduct.Perspective.DEBTOR);
+
+                CancellableLoan loanCC1 = new CancellableLoan(loanTenor, coupons, 4.5, nominal, 0, 3, LoanProduct.Perspective.CREDITOR, LoanProduct.Perspective.CREDITOR);
+                CancellableLoan loanCD1 = new CancellableLoan(loanTenor, coupons, 4.5, nominal, 0, 3, LoanProduct.Perspective.CREDITOR, LoanProduct.Perspective.DEBTOR);
+                CancellableLoan loanDD1 = new CancellableLoan(loanTenor, coupons, 4.5, nominal, 0, 3, LoanProduct.Perspective.DEBTOR, LoanProduct.Perspective.DEBTOR);
+
+                CancellableLoan loanCC2 = new CancellableLoan(loanTenor, coupons, 4.5, nominal, 0, 1, LoanProduct.Perspective.CREDITOR, LoanProduct.Perspective.CREDITOR);
+                CancellableLoan loanCD2 = new CancellableLoan(loanTenor, coupons, 4.5, nominal, 0, 1, LoanProduct.Perspective.CREDITOR, LoanProduct.Perspective.DEBTOR);
+                CancellableLoan loanDD2 = new CancellableLoan(loanTenor, coupons, 4.5, nominal, 0, 1, LoanProduct.Perspective.DEBTOR, LoanProduct.Perspective.DEBTOR);
+
+
+                yPoints0[0][i] = loanCC0.getValue(0, multiModel, process).getAverage();
+                yPoints0[1][i] = loanCD0.getValue(0, multiModel, process).getAverage();
+                yPoints0[2][i] = loanDD0.getValue(0, multiModel, process).getAverage();
+                yPoints1[0][i] = loanCC1.getValue(0, multiModel, process).getAverage();
+                yPoints1[1][i] = loanCD1.getValue(0, multiModel, process).getAverage();
+                yPoints1[2][i] = loanDD1.getValue(0, multiModel, process).getAverage();
+                yPoints2[0][i] = loanCC2.getValue(0, multiModel, process).getAverage();
+                yPoints2[1][i] = loanCD2.getValue(0, multiModel, process).getAverage();
+                yPoints2[2][i] = loanDD2.getValue(0, multiModel, process).getAverage();
+
+            }
+
+            String[] plotableNames = new String[] {"Valuation of Creditor","Valuation of Creditor with Stopping as by Debtor","Valuation of Debtor"};
+            // Plot result
+            EasyPlot2D plot0 = new EasyPlot2D(plotableNames, xPoints[0], yPoints0);
+            plot0.setTitle(plotNames[0]);
+            plot0.setIsLegendVisible(true);
+            plot0.setXAxisLabel("Free Parameter range");
+            plot0.setYAxisLabel("Value");
+
+            plot0.show();
+
+            EasyPlot2D plot1 = new EasyPlot2D(plotableNames, xPoints[0], yPoints1);
+            plot1.setTitle(plotNames[1]);
+            plot1.setIsLegendVisible(true);
+            plot1.setXAxisLabel("Free Parameter range");
+            plot1.setYAxisLabel("Value");
+
+            plot1.show();
+
+            EasyPlot2D plot2 = new EasyPlot2D(plotableNames, xPoints[0], yPoints2);
+            plot2.setTitle(plotNames[2]);
+            plot2.setIsLegendVisible(true);
+            plot2.setXAxisLabel("Free Parameter range");
+            plot2.setYAxisLabel("Value");
+
+            plot2.show();
         }
 
     }
@@ -402,7 +612,7 @@ public class MasterThesisPlots extends Time {
 
         MonteCarloProcess process = factory.createNumericalScheme(multiModel);
 
-        double nominal = 100000;
+        double nominal = 1;
         int maturityIndex = 3;
         final int numberOfValuations = 10;
         final int fMaturityIndex = 9; // i + maturityIndex;
@@ -745,7 +955,7 @@ public class MasterThesisPlots extends Time {
     public static char subscript(int number) {
         return (char)('\u2080' + number);
     }
-    public static void createSurvivalProbabilityPlot() throws CalculationException {
+    public static EasyPlot2D[] createSurvivalProbabilityPlot() throws CalculationException {
         DefaultableLIBORModelFactory factory = new DefaultableLIBORModelFactory();
         Map<String, Object> properties = new HashMap<>();
 
@@ -821,7 +1031,9 @@ public class MasterThesisPlots extends Time {
             System.out.println("Could not save Plot to file. See Stack trace for more.");
             ex.printStackTrace();
         }
-
+        return new EasyPlot2D[] {plotDefaultableBonds};
     }
+
+
 
 }
