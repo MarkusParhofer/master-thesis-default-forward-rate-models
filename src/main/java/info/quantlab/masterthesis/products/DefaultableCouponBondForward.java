@@ -5,150 +5,149 @@ import info.quantlab.masterthesis.multilibormodels.MultiLIBORVectorModel;
 import net.finmath.exception.CalculationException;
 import net.finmath.montecarlo.interestrate.LIBORMarketModel;
 import net.finmath.montecarlo.interestrate.TermStructureMonteCarloSimulationModel;
-import net.finmath.montecarlo.interestrate.products.AbstractTermStructureMonteCarloProduct;
 import net.finmath.montecarlo.process.MonteCarloProcess;
 import net.finmath.stochastic.RandomVariable;
-import net.finmath.stochastic.Scalar;
+import net.finmath.time.TimeDiscretization;
+import net.finmath.time.TimeDiscretizationFromArray;
+import net.finmath.util.TriFunction;
 
-public class DefaultableCouponBondForward extends AbstractTermStructureMonteCarloProduct {
+public class DefaultableCouponBondForward extends LoanProduct {
 
-    public DefaultableCouponBondForward(double strike, double nominal, double[] couponRates, int maturityIndex) {
+    public DefaultableCouponBondForward(TimeDiscretization tenor, double[] coupons, double strike, int creditorIndex, int debtorIndex, Perspective valuationPerspective) {
+        super(valuationPerspective);
+        _tenor = tenor;
         _strike = strike;
-        _nominal = nominal;
-        _couponRates = couponRates;
-        _maturityIndex = maturityIndex;
-        _credStillCollectsPastDefault = false;
+        _coupons = coupons;
+        _creditorIndex = creditorIndex;
+        _debtorIndex = debtorIndex;
     }
 
-    public DefaultableCouponBondForward(double strike, double nominal, double[] couponRates, int maturityIndex, boolean partyStillCollectsPastDefault) {
-        _strike = strike;
-        _nominal = nominal;
-        _couponRates = couponRates;
-        _maturityIndex = maturityIndex;
-        _credStillCollectsPastDefault = partyStillCollectsPastDefault;
-        _debtStillCollectsPastDefault = partyStillCollectsPastDefault;
+    public DefaultableCouponBondForward(double[] tenor, double[] coupons, double strike, int creditorIndex, int debtorIndex, Perspective valuationPerspective) {
+        this(new TimeDiscretizationFromArray(tenor), coupons, strike, creditorIndex, debtorIndex, valuationPerspective);
     }
 
-    public DefaultableCouponBondForward(double strike, double nominal, double[] couponRates, int maturityIndex, boolean creditorStillCollectsPastDefault, boolean debtorStillCollectsPastDefault) {
-        _strike = strike;
-        _nominal = nominal;
-        _couponRates = couponRates;
-        _maturityIndex = maturityIndex;
-        _credStillCollectsPastDefault = creditorStillCollectsPastDefault;
-        _debtStillCollectsPastDefault = debtorStillCollectsPastDefault;
+    public DefaultableCouponBondForward(double[] tenor, double[] couponRates, double nominal, double strike, int creditorIndex, int debtorIndex, Perspective valuationPerspective) {
+        this(tenor, couponRates.clone(), strike, creditorIndex, debtorIndex, valuationPerspective);
+        for(int i =0; i < _coupons.length; i++) {
+            _coupons[i] *= (_tenor.getTime(i+1) - _tenor.getTime(i)) * nominal;
+        }
+        _coupons[_coupons.length - 1] += nominal;
+    }
+
+    public DefaultableCouponBondForward(TimeDiscretization tenor, double[] coupons, double strike) {
+        this(tenor, coupons, strike, 0, 0, Perspective.DEBTOR);
+    }
+
+    public DefaultableCouponBondForward(double[] tenor, double[] coupons, double strike) {
+        this(new TimeDiscretizationFromArray(tenor), coupons, strike);
+    }
+
+    public DefaultableCouponBondForward(double[] tenor, double[] couponRates, double nominal, double strike) {
+        this(tenor, couponRates, nominal, strike, 0, 0, Perspective.DEBTOR);
     }
 
     double _strike;
-    double _nominal;
-    double[] _couponRates;
-    int _maturityIndex;
-    boolean _credStillCollectsPastDefault;
-    boolean _debtStillCollectsPastDefault;
+    TimeDiscretization _tenor;
+    double[] _coupons;
+    int _debtorIndex;
+    int _creditorIndex;
 
 
     @Override
     public RandomVariable getValue(double evaluationTime, TermStructureMonteCarloSimulationModel model) throws CalculationException {
-        if(model.getModel() instanceof DefaultableLIBORMarketModel defModel) {
-            return getValue(evaluationTime, defModel, model.getProcess(), true);
-        }
-        else if(model.getModel() instanceof MultiLIBORVectorModel multiModel) {
-            return getValue(evaluationTime, multiModel, model.getProcess(), 1, 0);
+        if (model.getModel() instanceof DefaultableLIBORMarketModel defModel) {
+            return getValue(evaluationTime, defModel, model.getProcess());
+        } else if (model.getModel() instanceof MultiLIBORVectorModel multiModel) {
+            return getValue(evaluationTime, multiModel, model.getProcess());
         }
 
         // Case No Defaultable model given:
         return getValue(evaluationTime, (LIBORMarketModel) model.getModel(), model.getProcess());
     }
 
-    public RandomVariable getValue(double evaluationTime, LIBORMarketModel model, MonteCarloProcess process) throws CalculationException {
-        if(model instanceof DefaultableLIBORMarketModel defModel) {
-            return getValue(evaluationTime, defModel, process, true);
+    @Override
+    RandomVariable getValue(double evaluationTime, MultiLIBORVectorModel model, MonteCarloProcess process) throws CalculationException {
+        if (evaluationTime > 0) {
+            throw new IllegalArgumentException("For now evaluationTime larger than 0 is not supported");
         }
-        else if(model instanceof MultiLIBORVectorModel multiModel) {
-            return getValue(evaluationTime, multiModel, process, 1, 0);
+        final int terminalIndex = _tenor.getNumberOfTimes();
+        RandomVariable payoff = model.getRandomVariableForConstant(_strike);
+
+        TriFunction<MonteCarloProcess, Double, Integer, RandomVariable> numeraire = (p, t, m) -> {
+            try {
+                if(m<0) {
+                    return model.getNumeraire(p, t);
+                } else {
+                    return model.getDefaultableNumeraire(p, t, m);
+                }
+            } catch (CalculationException e) {
+                throw new RuntimeException(e);
+            }
+        };
+        TriFunction<MonteCarloProcess, Double, Integer, RandomVariable> survivalProb = (p, t, m) -> {
+            try {
+                if(m<0) {
+                    return model.getRandomVariableForConstant(1.0);
+                } else {
+                    return model.getSurvivalProbability(p, t, m);
+                }
+            } catch (CalculationException e) {
+                throw new RuntimeException(e);
+            }
+        };
+        payoff = payoff.mult(survivalProb.apply(process, _tenor.getFirstTime(), _creditorIndex));
+        payoff = payoff.div(numeraire.apply(process, _tenor.getFirstTime(), _debtorIndex));
+
+        for (int i = 1; i < terminalIndex; i++) {
+            RandomVariable coupon = model.getRandomVariableForConstant(_coupons[i - 1]);
+            switch(getValuationPerspective()) {
+                case CREDITOR:
+                    coupon = coupon.mult(survivalProb.apply(process, _tenor.getTime(i), _creditorIndex));
+                case MARKET_IMPLIED:
+                case DEBTOR:
+                    coupon = coupon.div(numeraire.apply(process, _tenor.getTime(i), _debtorIndex));
+                    break;
+            }
+            payoff = payoff.sub(coupon);
+        }
+        return payoff;
+    }
+
+    @Override
+    RandomVariable getValue(double evaluationTime, DefaultableLIBORMarketModel model, MonteCarloProcess process) throws CalculationException {
+        if (evaluationTime > 0) {
+            throw new IllegalArgumentException("For now evaluationTime larger than 0 is not supported");
+        }
+
+        final int terminalIndex = _tenor.getNumberOfTimes();
+        RandomVariable payoff = model.getRandomVariableForConstant(_strike).div(model.getDefaultableNumeraire(process, _tenor.getTime(0)));
+        for (int i = 1; i < terminalIndex; i++) {
+            RandomVariable coupon = model.getRandomVariableForConstant(_coupons[i - 1]);
+            coupon = coupon.div(model.getDefaultableNumeraire(process, _tenor.getTime(i)));
+            payoff = payoff.sub(coupon);
+        }
+        return payoff;
+    }
+
+    public RandomVariable getValue(double evaluationTime, LIBORMarketModel model, MonteCarloProcess process) throws CalculationException {
+        if (model instanceof DefaultableLIBORMarketModel defModel) {
+            return getValue(evaluationTime, defModel, process);
+        } else if (model instanceof MultiLIBORVectorModel multiModel) {
+            return getValue(evaluationTime, multiModel, process);
         }
 
         // Case No Defaultable model given:
-        if(evaluationTime > 0) {
-            throw new IllegalArgumentException("For now evaluationTime higher than 0 not supported");
-        }
-        final int terminalIndex = Math.min(model.getLiborPeriodDiscretization().getNumberOfTimes(), _couponRates.length + _maturityIndex + 1);
-
-        final double maturityTime = model.getLiborPeriod(_maturityIndex);
-        RandomVariable payoff = model.getRandomVariableForConstant(_strike);
-        for(int i = _maturityIndex + 1; i < terminalIndex; i++) {
-            final double couponTime = model.getLiborPeriod(i);
-            RandomVariable coupon = model.getRandomVariableForConstant(_couponRates[i - _maturityIndex - 1]);
-            if(i == terminalIndex - 1) {
-                coupon = coupon.add(1.0); // Add redemption
-            }
-            RandomVariable forwardRate = model.getForwardRate(process, maturityTime, maturityTime, couponTime);
-            RandomVariable bond = new Scalar(1.0).discount(forwardRate, couponTime - maturityTime); // P(T_s;T_i)
-            coupon = coupon.mult(_nominal).mult(bond);
-            payoff = payoff.sub(coupon);
-        }
-        payoff = payoff.div(model.getNumeraire(process, maturityTime));
-        return payoff;
-    }
-
-    private RandomVariable getValue(double evaluationTime, DefaultableLIBORMarketModel model, MonteCarloProcess process, boolean reserved) throws CalculationException {
-        if(evaluationTime > 0) {
+        if (evaluationTime > 0) {
             throw new IllegalArgumentException("For now evaluationTime larger than 0 is not supported");
         }
-        final int terminalIndex = Math.min(model.getLiborPeriodDiscretization().getNumberOfTimes(), _couponRates.length + _maturityIndex + 1);
-        final double maturityTime = model.getLiborPeriod(_maturityIndex);
-        RandomVariable payoff = model.getRandomVariableForConstant(_strike);
-        for(int i = _maturityIndex + 1; i < terminalIndex; i++) {
-            final double couponTime = model.getLiborPeriod(i);
-            RandomVariable coupon = model.getRandomVariableForConstant(_couponRates[i - _maturityIndex - 1]);
-            if(i == terminalIndex - 1) {
-                coupon = coupon.add(1.0); // Add redemption
-            }
-            coupon = coupon.mult(_nominal).mult(model.getDefaultableBond(process, maturityTime, couponTime));
+
+        final int terminalIndex = _tenor.getNumberOfTimes();
+        RandomVariable payoff = model.getRandomVariableForConstant(_strike).div(model.getNumeraire(process, _tenor.getTime(0)));
+        for (int i = 1; i < terminalIndex; i++) {
+            RandomVariable coupon = model.getRandomVariableForConstant(_coupons[i - 1]);
+            coupon = coupon.div(model.getNumeraire(process, _tenor.getTime(i)));
             payoff = payoff.sub(coupon);
         }
-        payoff = payoff.div(model.getDefaultableNumeraire(process, maturityTime));
         return payoff;
-    }
-
-    public RandomVariable getValue(double evaluationTime, MultiLIBORVectorModel model, MonteCarloProcess process, int debtorIndex, int creditorIndex) throws CalculationException {
-        final double maturityTime = model.getLiborPeriod(_maturityIndex);
-        final DefaultableLIBORMarketModel debtorModel = model.getDefaultableModel(debtorIndex);
-        final MonteCarloProcess debtorProcess = model.getDefaultableProcess(process, debtorIndex);
-        final DefaultableLIBORMarketModel creditorModel = model.getDefaultableModel(creditorIndex);
-        final MonteCarloProcess creditorProcess = model.getDefaultableProcess(process, creditorIndex);
-        RandomVariable result = getValue(evaluationTime, debtorModel, debtorProcess);
-        if(_credStillCollectsPastDefault) {
-            result = result.floor(0.0).mult(creditorModel.getSurvivalProbability(creditorProcess, maturityTime))
-                    .add(result.cap(0.0));
-        } else {
-            result = result.mult(creditorModel.getSurvivalProbability(creditorProcess, maturityTime));
-        }
-        if(_debtStillCollectsPastDefault) {
-            final RandomVariable one = model.getRandomVariableForConstant(1.0);
-            final RandomVariable adjust = one.mult(_nominal).div(creditorModel.getDefaultableNumeraire(creditorProcess, maturityTime));
-            result = result.add(adjust.mult(one.sub(debtorModel.getSurvivalProbability(debtorProcess, maturityTime))));
-        }
-        return result;
-    }
-
-    public double getDoubleValue(double evaluationTime, MultiLIBORVectorModel model, MonteCarloProcess process, int debtorIndex, int creditorIndex) throws CalculationException {
-        final double maturityTime = model.getLiborPeriod(_maturityIndex);
-        final DefaultableLIBORMarketModel debtorModel = model.getDefaultableModel(debtorIndex);
-        final MonteCarloProcess debtorProcess = model.getDefaultableProcess(process, debtorIndex);
-        final DefaultableLIBORMarketModel creditorModel = model.getDefaultableModel(creditorIndex);
-        final MonteCarloProcess creditorProcess = model.getDefaultableProcess(process, creditorIndex);
-        RandomVariable result = getValue(evaluationTime, debtorModel, debtorProcess);
-        double doubleResult = 0.0;
-        if(_credStillCollectsPastDefault) {
-            doubleResult = result.floor(0.0).mult(creditorModel.getSurvivalProbability(creditorProcess, maturityTime)).getAverage() + result.cap(0.0).getAverage();
-        } else {
-            doubleResult = result.mult(creditorModel.getSurvivalProbability(creditorProcess, maturityTime)).getAverage();
-        }
-        if(_debtStillCollectsPastDefault) {
-            final RandomVariable one = model.getRandomVariableForConstant(1.0);
-            final RandomVariable adjust = one.mult(_nominal).div(creditorModel.getDefaultableNumeraire(creditorProcess, maturityTime));
-            doubleResult += adjust.mult(one.sub(debtorModel.getSurvivalProbability(debtorProcess, maturityTime))).getAverage();
-        }
-        return doubleResult;
     }
 }

@@ -4,6 +4,8 @@ import java.awt.*;
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Field;
+import java.text.DecimalFormat;
+import java.text.NumberFormat;
 import java.util.*;
 import java.util.function.Function;
 
@@ -15,7 +17,9 @@ public class PlotRunner {
                 "saveassvg", "saveaspng", "saveasjpg", "saveaspdf",
                 "settitle",
                 "setxaxislabel",
+                "setxaxisnumberformat",
                 "setyaxislabel",
+                "setyaxisnumberformat",
                 "setislegendvisible",
                 "changeplotcolor",
                 "changeplotname",
@@ -28,6 +32,10 @@ public class PlotRunner {
         for(String command: commands) {
             System.out.println(methodNameSignature(command));
         }
+        System.out.println("An argument that should always given is " +
+                "\t-plotIndex (int). " +
+                "It specifies the index of the " +
+                "plot window the command refers to. Note that an index to a plot that does not exist will cause an error.");
     }
 
     public static String methodNameSignature(String command) {
@@ -53,10 +61,18 @@ public class PlotRunner {
                     SetXAxisLabel has 1 argument.
                     \t-xAxisLabel, -l or 0 as the new xAxisLabel (String)
                     \tDescription: Changes the xAxisLabel of the plot.""";
+            case "setxaxisnumberformat" -> """
+                    SetXAxisNumberFormat has 1 argument.
+                    \t-numberFormat, -f or 0 as the new number format of the xAxis (String)
+                    \tDescription: Changes the number format of the xAxis of the plot. Must be a decimal format pattern""";
             case "setyaxislabel" -> """
                     SetYAxisLabel has 1 argument.
                     \t-yAxisLabel, -l or 0 as the new yAxisLabel (String)
                     \tDescription: Changes the yAxisLabel of the plot.""";
+            case "setyaxisnumberformat" -> """
+                    SetYAxisNumberFormat has 1 argument.
+                    \t-numberFormat, -f or 0 as the new number format of the yAxis (String)
+                    \tDescription: Changes the number format of the yAxis of the plot.""";
             case "setislegendvisible" -> """
                     SetIsLegendvisible has 1 argument.
                     \t-isLegendvisible, -v or 0 as the new visibility of the legend
@@ -84,6 +100,9 @@ public class PlotRunner {
                     RemoveMarker has 1 argument.
                     \t-index, -i or 0 as the index to remove the markers from (int)
                     \tDescription: Removes the markers from the specified plot.""";
+            case "removeallmarkers" -> """
+                    RemoveAllMarkers has 0 arguments.
+                    \tDescription: Removes all markers from the plots in the plot window.""";
             case "setnextmarker" -> """
                     SetNextMarker has 1 argument.
                     \t-index, -i or 0 as the index to remove the markers from (int)
@@ -112,6 +131,7 @@ public class PlotRunner {
 
             if (input.equalsIgnoreCase("exit")) {
                 System.out.println("Exiting the program...");
+                System.exit(0);
                 break; // Exit the loop
             } else {
                 String[] parts = input.split("\\s+");
@@ -220,11 +240,37 @@ public class PlotRunner {
                         method = (index) -> plots[index].setXAxisLabel(xAxisLabel);
                         break;
                     }
+                    case "setxaxisnumberformat":
+                    {
+                        final String xAxisNumberFormat = args.containsKey("0") ? args.get("0") :
+                                (args.containsKey("f") ? args.get("f") : args.getOrDefault("numberformat", ""));
+                        try {
+                            final NumberFormat format = new DecimalFormat(xAxisNumberFormat);
+                            method = (index) -> plots[index].setXAxisNumberFormat(format);
+                        } catch(Exception ex) {
+                            System.out.println("Parsing the arguments yields an error!\n" + methodNameSignature(command));
+                        }
+
+                        break;
+                    }
                     case "setyaxislabel":
                     {
                         final String yAxisLabel = args.containsKey("0") ? args.get("0") :
                                 (args.containsKey("l") ? args.get("l") : args.getOrDefault("yaxislabel", ""));
                         method = (index) -> plots[index].setYAxisLabel(yAxisLabel);
+                        break;
+                    }
+                    case "setyaxisnumberformat":
+                    {
+                        final String yAxisNumberFormat = args.containsKey("0") ? args.get("0") :
+                                (args.containsKey("f") ? args.get("f") : args.getOrDefault("numberformat", ""));
+                        try {
+                            final NumberFormat format = new DecimalFormat(yAxisNumberFormat);
+                            method = (index) -> plots[index].setYAxisNumberFormat(format);
+                        } catch(Exception ex) {
+                            System.out.println("Parsing the arguments yields an error!\n" + methodNameSignature(command));
+                        }
+
                         break;
                     }
                     case "setislegendvisible":
@@ -327,6 +373,16 @@ public class PlotRunner {
                         }
                         break;
                     }
+                    case "removeallmarkers":
+                    {
+                        method = (index) -> {
+                            for (int i = 0; i < plots[index].getNumberOfPlots(); i++) {
+                                plots[index].changePlotMarker(i, null);
+                            }
+                            return new Object();
+                        };
+                        break;
+                    }
                     case "setnextmarker":
                     {
                         String pIndex = args.containsKey("0")? args.get("0") :
@@ -415,6 +471,9 @@ public class PlotRunner {
                 }
                 if(plotIndex == Integer.MAX_VALUE) {
                     for (int pIndex = 0; pIndex < plots.length; pIndex++) {
+                        if(plots[pIndex] == null) {
+                            continue;
+                        }
                         method.apply(pIndex);
                     }
                 } else {

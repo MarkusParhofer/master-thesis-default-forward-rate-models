@@ -184,7 +184,7 @@ public class EasyPlot2D extends Plot2D {
 			directoryExists = directory.mkdirs();
 
 		if(directoryExists) {
-			String className = title.replaceAll("[^abcdefghjklmnopqrstuvwxyzABCDEFGHJKLMNOPQRSTUVWXYZ1234567890_]", "_");
+			String className = title.replaceAll("[^abcdefghijklmnopqrstuvwxyzABCDEFGHJIKLMNOPQRSTUVWXYZ1234567890_]", "_");
 			className += timeStamp;
 			File file = new File(pathString + className + ".java");
 		boolean result;
@@ -217,7 +217,8 @@ public class EasyPlot2D extends Plot2D {
 						"import org.jfree.chart.plot.DefaultDrawingSupplier;\n" +
 						"import org.jfree.chart.plot.DrawingSupplier;\n" +
 						"import java.util.List;\n" +
-						"import java.util.ArrayList;\n\n\n";
+						"import java.util.ArrayList;\n\n" +
+						"import static info.quantlab.easyplot.PlotRunner.runConfigLoop;\n\n\n";
 				myWriter.write(imp);
 			}
 			// Class name and main function and List of plotables
@@ -289,6 +290,8 @@ public class EasyPlot2D extends Plot2D {
 			myWriter.write("myPlot.show();\n");
 			String comment = "/* Original Plot: \"" + super.toString() + "\"*/\n";
 			myWriter.write(comment);
+
+			myWriter.write("runConfigLoop(new EasyPlot2D[] { myPlot });\n");
 			// close main
 			myWriter.write("}\n");
 			// close class

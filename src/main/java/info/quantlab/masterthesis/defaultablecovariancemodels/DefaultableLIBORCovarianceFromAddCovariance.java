@@ -59,7 +59,7 @@ public class DefaultableLIBORCovarianceFromAddCovariance extends AbstractDefault
         RandomVariable[] realVector = new RandomVariable[getNumberOfLIBORPeriods()];
         realVector[liborPeriodIndex] = defRealization;
         RandomVariable[] resultVector = _covModel.getFactorLoading(timeIndex, liborPeriodIndex, realVector);
-        for (int i = 0; i < realVector.length; i++) {
+        for (int i = 0; i < resultVector.length; i++) {
             resultVector[i] = resultVector[i].div(defRealization.sub(nonDefRealization));
         }
         return resultVector;

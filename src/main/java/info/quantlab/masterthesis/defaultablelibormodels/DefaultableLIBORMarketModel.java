@@ -134,10 +134,15 @@ public interface DefaultableLIBORMarketModel extends LIBORMarketModel, ProcessMo
 	int getNumberOfComponents();
 	
 	/**
-	 * The number of LIBOR Periods.
+	 * The number of LIBOR Periods. Same as {@link #getNumberOfLIBORPeriods()}.
 	 */
 	@Override
 	int getNumberOfLibors();
+
+	/**
+	 * The number of LIBOR Periods.
+	 */
+	int getNumberOfLIBORPeriods();
 	
 	/**
 	 * Gets the Spread of the LIBOR rate (i.e. the difference between the defaultable and non-defaultable rate) at a given time index.

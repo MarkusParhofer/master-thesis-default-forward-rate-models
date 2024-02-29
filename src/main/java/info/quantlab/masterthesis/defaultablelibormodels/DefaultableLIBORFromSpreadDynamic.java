@@ -279,6 +279,7 @@ public class DefaultableLIBORFromSpreadDynamic  extends AbstractProcessModel imp
 		return 2 * getNumberOfLIBORPeriods();
 	}
 
+	@Override
 	public int getNumberOfLIBORPeriods() {
 		return getLiborPeriodDiscretization().getNumberOfTimeSteps();
 	}
@@ -998,6 +999,10 @@ public class DefaultableLIBORFromSpreadDynamic  extends AbstractProcessModel imp
 		if(timeIndex < 0) {
 			timeIndex = - timeIndex - 1; // Originally - 1 but we want to get prev. time index
 		}
+		if(timeIndex == process.getTimeDiscretization().getNumberOfTimes()) {
+			timeIndex--;
+		}
+
 		
 		if (measure == Measure.TERMINAL) {
 			// Initialize to 1.0

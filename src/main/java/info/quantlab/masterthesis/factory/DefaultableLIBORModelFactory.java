@@ -1,10 +1,9 @@
 package info.quantlab.masterthesis.factory;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.function.BiFunction;
 
+import info.quantlab.masterthesis.defaultablecovariancemodels.DefaultableLIBORCovarianceFromAddCovariance;
 import info.quantlab.masterthesis.defaultablecovariancemodels.DefaultableLIBORCovarianceModel;
 import info.quantlab.masterthesis.defaultablecovariancemodels.DefaultableLIBORCovarianceWithGuaranteedPositiveSpread;
 import info.quantlab.masterthesis.defaultablelibormodels.DefaultableLIBORFromSpreadDynamic;
@@ -22,17 +21,10 @@ import net.finmath.montecarlo.RandomVariableFromArrayFactory;
 import net.finmath.montecarlo.interestrate.CalibrationProduct;
 import net.finmath.montecarlo.interestrate.LIBORMarketModel;
 import net.finmath.montecarlo.interestrate.models.LIBORMarketModelFromCovarianceModel;
-import net.finmath.montecarlo.interestrate.models.covariance.AbstractLIBORCovarianceModelParametric;
-import net.finmath.montecarlo.interestrate.models.covariance.BlendedLocalVolatilityModel;
-import net.finmath.montecarlo.interestrate.models.covariance.DisplacedLocalVolatilityModel;
-import net.finmath.montecarlo.interestrate.models.covariance.LIBORCorrelationModelExponentialDecay;
-import net.finmath.montecarlo.interestrate.models.covariance.LIBORCovarianceModelFromVolatilityAndCorrelation;
-import net.finmath.montecarlo.interestrate.models.covariance.LIBORVolatilityModel;
-import net.finmath.montecarlo.interestrate.models.covariance.LIBORVolatilityModelFourParameterExponentialForm;
+import net.finmath.montecarlo.interestrate.models.covariance.*;
 import net.finmath.montecarlo.model.ProcessModel;
 import net.finmath.montecarlo.process.EulerSchemeFromProcessModel;
 import net.finmath.montecarlo.process.MonteCarloProcess;
-import net.finmath.opencl.montecarlo.RandomVariableOpenCLFactory;
 import net.finmath.randomnumbers.MersenneTwister;
 import net.finmath.stochastic.RandomVariable;
 import net.finmath.time.TimeDiscretization;
@@ -46,6 +38,7 @@ import net.finmath.util.TriFunction;
  * @author Markus Parhofer
  * @version 0.9
  */
+@SuppressWarnings("unused")
 public class DefaultableLIBORModelFactory {
 
 	/**
@@ -62,6 +55,11 @@ public class DefaultableLIBORModelFactory {
 		NORMAL,
 		DISPLACED,
 		BLENDED
+	}
+
+	public enum FreeParametersModel {
+		COVARIANCE, // Produces very instable covarince structure
+		RANDOM
 	}
 	
 	/**
@@ -109,13 +107,15 @@ public class DefaultableLIBORModelFactory {
 	private double[] initialRatesDefaultable = { 0.04, 0.048, 0.055, 0.046, 0.04, 0.025 };
 	private String simulationModel;
 	private String stateSpaceOfSpread;
+	private FreeParametersModel freeParamsDesc = FreeParametersModel.RANDOM;
 	private int freeParamsSeed = 111;
 	private double freeParamsRange = 0.5;
-	private BiFunction<Integer, Double, double[][]> freeParamsGenerator = (seed, range) -> {
-		return generateFreeParamsDefault(seed, range, numberOfLiborPeriods, numberOfExtraFactors);
-	};
-	
-	
+	private BiFunction<Integer, Double, double[][]> freeParamsGenerator = (seed, range) -> generateFreeParamsDefault(seed, range, numberOfLiborPeriods, numberOfExtraFactors);
+	private double[] freeParams = { 0.1, 0.0, 0.25, 0.1, 0.2 };
+	private double freeParamsDisplacement = 0.0;
+	private CovarianceModel freeParamsCovModel = CovarianceModel.NORMAL;
+
+
 	// Simulation parameters:
 	private double simulationTimeDelta = 0.001;
 	private int numberOfPaths = 1000;
@@ -150,10 +150,14 @@ public class DefaultableLIBORModelFactory {
 		properties.put("initialRatesDefaultable", initialRatesDefaultable);
 		properties.put("simulationModel", simulationModel);
 		properties.put("stateSpaceOfSpread", stateSpaceOfSpread);
+		properties.put("freeParamsDesc", freeParamsDesc);
 		properties.put("freeParamsSeed", freeParamsSeed);
 		properties.put("freeParamsRange", freeParamsRange);
 		properties.put("freeParamsGenerator", freeParamsGenerator);
-		
+		properties.put("freeParams", freeParams);
+		properties.put("freeParamsCovModel", freeParamsCovModel);
+		properties.put("freeParamsDisplacement", freeParamsDisplacement);
+
 		
 		properties.put("simulationTimeDelta", simulationTimeDelta);
 		properties.put("numberOfPaths", numberOfPaths);
@@ -267,6 +271,28 @@ public class DefaultableLIBORModelFactory {
 				case "freeparamsgenerator":
 					freeParamsGenerator = (BiFunction<Integer, Double, double[][]>) properties.get(key);
 					break;
+				case "freeparams":
+					freeParams = (double[]) properties.get(key);
+					break;
+				case "freeparamsdisplacement":
+					freeParamsDisplacement = (double) properties.get(key);
+					break;
+				case "freeparamscovmodel":
+					if(properties.get(key) instanceof CovarianceModel covModel) {
+						freeParamsCovModel = covModel;
+					}
+					else if(properties.get(key) instanceof String stringCovModel) {
+						freeParamsCovModel = CovarianceModel.valueOf(stringCovModel);
+					}
+					break;
+				case "freeparamsdesc":
+					if(properties.get(key) instanceof FreeParametersModel freeParamsModel) {
+						freeParamsDesc = freeParamsModel;
+					}
+					else if(properties.get(key) instanceof String freeParamsModel) {
+						freeParamsDesc = FreeParametersModel.valueOf(freeParamsModel);
+					}
+					break;
 					
 				case "simulationtimedelta":
 					simulationTimeDelta = (double) properties.get(key);
@@ -371,9 +397,24 @@ public class DefaultableLIBORModelFactory {
 		properties.put("simulationModel", simulationModel);
 		properties.put("stateSpaceOfSpread", stateSpaceOfSpread);
 		
-		final DefaultableLIBORCovarianceModel defaultableCovariance = new DefaultableLIBORCovarianceWithGuaranteedPositiveSpread(baseModel.getCovarianceModel(), freeParamsGenerator.apply(freeParamsSeed, freeParamsRange));
-		//final DefaultableLIBORCovarianceModel defaultableCovariance = new DefaultableLIBORCovarianceWithInitialUndefaultableCovariance(baseCovarianceModel, defaultableForwards, nonDefaultableForwards, numberOfExtraFactors, 0.5);
-				
+		DefaultableLIBORCovarianceModel defaultableCovariance;
+        if (Objects.requireNonNull(freeParamsDesc) == FreeParametersModel.COVARIANCE) {
+			AbstractLIBORCovarianceModelParametric lCovModel = new LIBORCovarianceModelExponentialForm5Param(baseModel.getCovarianceModel().getTimeDiscretization(), baseModel.getCovarianceModel().getLiborPeriodDiscretization(), numberOfExtraFactors, freeParams);
+			switch(freeParamsCovModel) {
+				case NORMAL:
+					break;
+				case BLENDED:
+					lCovModel = new BlendedLocalVolatilityModel(lCovModel, null, displacement, true);
+					break;
+				case DISPLACED:
+					lCovModel = new DisplacedLocalVolatilityModel(lCovModel, displacement, true);
+					break;
+			}
+			defaultableCovariance = new DefaultableLIBORCovarianceFromAddCovariance(lCovModel, baseModel.getCovarianceModel(), true);
+		} else {
+            defaultableCovariance = new DefaultableLIBORCovarianceWithGuaranteedPositiveSpread(baseModel.getCovarianceModel(), freeParamsGenerator.apply(freeParamsSeed, freeParamsRange));
+        }
+
 		return new DefaultableLIBORFromSpreadDynamic(baseModel, defaultableCovariance, defaultableForwards, properties);
 	}
 	
