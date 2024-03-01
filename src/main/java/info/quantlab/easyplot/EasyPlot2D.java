@@ -41,13 +41,14 @@ public class EasyPlot2D extends Plot2D {
 	private double xMin = Double.NaN, xMax = Double.NaN;
 	private double yMin = Double.NaN, yMax = Double.NaN;
 
-	private List<Plotable2D> plotables;
+	private ArrayList<Plotable2D> plotables;
+	private Map<Integer, Plotable2DCloneable> hiddenPlots;
 
 	// Multiple Plots
 	public EasyPlot2D(final List<Plotable2D> plotables) {
 		super(plotables);
-		if (plotables.get(0) instanceof Plotable2DCloneable)
-			this.plotables = plotables;
+		if (plotables instanceof ArrayList<Plotable2D> plotable2DS && plotables.get(0) instanceof Plotable2DCloneable)
+			this.plotables = plotable2DS;
 		else {
 			update(plotables);
 		}
@@ -122,8 +123,7 @@ public class EasyPlot2D extends Plot2D {
 	}
 
 	public EasyPlot2D addPlot(final Plotable2D plotable) {
-		Stream<Plotable2D> plotableStream = Stream.concat(plotables.stream(), Stream.of(new Plotable2DCloneable(plotable)));
-		plotables = plotableStream.collect(Collectors.toList());
+		plotables.add(new Plotable2DCloneable(plotable));
 		update();
 		return this;
 	}
@@ -131,8 +131,7 @@ public class EasyPlot2D extends Plot2D {
 	public EasyPlot2D addPlot(final List<Plotable2D> newPlotables) {
 		List<Plotable2D> plotable2DS = newPlotables.get(0) instanceof Plotable2DCloneable ? newPlotables :
 				Plotable2DCloneable.listOf(newPlotables, unstaticDrawingSupplier);
-		Stream<Plotable2D> plotStream = Stream.concat(plotables.stream(), plotable2DS.stream());
-		plotables = plotStream.collect(Collectors.toList());
+		plotables.addAll(plotable2DS);
 		update();
 		return this;
 	}
@@ -167,9 +166,48 @@ public class EasyPlot2D extends Plot2D {
 		if (index < 0 || index >= getNumberOfPlots()) {
 			return this;
 		}
-		ArrayList<Plotable2D> plots = new ArrayList<>(plotables);
-		plots.remove(index);
-		plotables = plots;
+		plotables.remove(index);
+		update();
+		return this;
+	}
+
+	public EasyPlot2D hidePlot(final int index) { // TODO: Adjust indexing etc. Add hidden plots to filewriter
+		if (index < 0 || index >= getNumberOfPlots()) {
+			return this;
+		}
+		Plotable2D p =plotables.remove(index);
+		Plotable2DCloneable pC;
+		boolean error = false;
+		if(p instanceof Plotable2DCloneable pCC) {
+			pC = pCC;
+		} else {
+			System.out.println("Plot is not of Type \"Plotable2DCloneable\". There must be abug somewhere.");
+			pC = Plotable2DCloneable.of(plotables.get(index));
+			error = true;
+		}
+		if(hiddenPlots == null) {
+			hiddenPlots = new HashMap<>(1);
+		}
+		hiddenPlots.put(index, pC);
+		if(error) {
+			update(plotables);
+		} else update();
+		return this;
+	}
+
+	public EasyPlot2D showPlot(final int index) { // TODO: Adjust indexing etc. Add hidden plots to filewriter
+		if (index < 0 || index >= getNumberOfPlots() || hiddenPlots == null || hiddenPlots.isEmpty()) {
+			return this;
+		}
+		Plotable2DCloneable p = hiddenPlots.getOrDefault(index, null);
+		if(p == null)
+			return this;
+
+		if(index >= plotables.size()) {
+			plotables.add(p);
+		} else {
+			plotables.add(index, p);
+		}
 		update();
 		return this;
 	}
@@ -349,12 +387,7 @@ public class EasyPlot2D extends Plot2D {
 		String returnName = plotToChange.getName();
 		final Plotable2DCloneable plotToChangeC = plotToChange.getCloneWithModifiedName(name);
 
-		plotables = plotables.stream().map(plotable -> {
-			if(plotable == plotables.get(plotIndex))
-				return plotToChangeC;
-			else
-				return plotable;
-		}).collect(Collectors.toList());
+		plotables.set(plotIndex, plotToChangeC);
 		if(error) {
 			update(plotables);
 		} else {
@@ -383,12 +416,7 @@ public class EasyPlot2D extends Plot2D {
                         plotToChange.getKind() == Plotable2DCloneable.Kind.FUNCTION, unstaticDrawingSupplier);
 		final Plotable2DCloneable plotToChangeC = plotToChange.getCloneWithModifiedStyle(newStyle);
 
-		plotables = plotables.stream().map(plotable -> {
-			if(plotable == plotables.get(plotIndex))
-				return plotToChangeC;
-			else
-				return plotable;
-		}).collect(Collectors.toList());
+		plotables.set(plotIndex, plotToChangeC);
 		if(error) {
 			update(plotables);
 		} else {
@@ -589,7 +617,7 @@ public class EasyPlot2D extends Plot2D {
 			return new Plotable2DCloneable(name, series, style, domainAxis, rangeAxis, kind);
 		}
 
-		public static List<Plotable2D> listOf(final List<Plotable2D> plotables, DrawingSupplier leDrawingSupplier) {
+		public static ArrayList<Plotable2D> listOf(final List<Plotable2D> plotables, DrawingSupplier leDrawingSupplier) {
 			Function<Integer, Plotable2D> mapper = (i) -> {
 				if(plotables.get(i).getStyle() == null) {
 					return of(plotables.get(i).getName(), plotables.get(i).getSeries(), getDefaultGraphStyle(i, true, leDrawingSupplier), plotables.get(i).getDomainAxis(), plotables.get(i).getRangeAxis(), getKind(plotables.get(i)));
@@ -597,7 +625,7 @@ public class EasyPlot2D extends Plot2D {
 				else
 					return of(plotables.get(i));
 			};
-			return IntStream.range(0, plotables.size()).mapToObj(mapper::apply).collect(Collectors.toList());
+			return new ArrayList<>(IntStream.range(0, plotables.size()).mapToObj(mapper::apply).collect(Collectors.toList()));
 		}
 
 		public Plotable2DCloneable clone() {

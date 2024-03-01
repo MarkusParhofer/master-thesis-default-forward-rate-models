@@ -66,12 +66,12 @@ public class ModelFromSpreadTest extends info.quantlab.debug.Time{
 	{
 		return Arrays.asList(new Object[][] {
 			// Put here an array of arrays where each array represents input for the constructor
-			{"Run 0: Modelling Spreads",					0.01, 		2, "SPREADS",	"EULER_FUNCTIONAL",			"SPOT", 	new double[] { 0.04, 0.049, 0.062, 0.049, 0.044, 0.031 }, 0},
+			{"Run 0: Modelling Spreads Lognormal",					0.25, 		2, "SPREADS",	"EULER_FUNCTIONAL",			"SPOT", 	new double[] { 0.04, 0.049, 0.062, 0.049, 0.044, 0.031 }, 0},
 			// For now the most stable version:
-			{"Run 1: Modelling defaultable LIBORs", 		 0.01, 	2, "LIBORS", 	"EULER",					"SPOT", 	new double[] { 0.04, 0.049, 0.062, 0.049, 0.044, 0.031 }, 1},
+			//{"Run 1: Modelling SPREADS", 		 0.01, 	2, "SPREADS", 	"EULER",					"SPOT", 	new double[] { 0.04, 0.049, 0.062, 0.049, 0.044, 0.031 }, 1},
 			
 			//{"Run 2: Modelling Spreads Milstein", 	0.01, 		2, "SPREADS", 	"MILSTEIN_FDCENTRAL",		"SPOT", 	new double[] { 0.04, 0.049, 0.062, 0.049, 0.044, 0.031 }, 2},
-			//{"Run 2: Spread with normal model",		0.001, 	2, "SPREADS",	"NORMAL",		"SPOT", 	new double[] { 0.04, 0.049, 0.062, 0.049, 0.044, 0.031 }, 0},
+			{"Run 2: Spread with normal model",						0.25, 	2, "SPREADS",	"EULER",		"SPOT", 	new double[] { 0.04, 0.049, 0.062, 0.049, 0.044, 0.031 }, 1},
 			/*{"Run 2: Spread is 0", 					0.01, 	2, "SPREADS",	"LOGNORMAL", 	"SPOT", 	new double[] { 0.035, 0.043, 0.05, 0.041, 0.035, 0.02 },  2},
 			{"Run 3: Rougher time delta", 			0.1, 	2, "SPREADS",	"LOGNORMAL", 	"SPOT", 	new double[] { 0.04, 0.049, 0.062, 0.049, 0.044, 0.031 }, 3},
 			{"Run 4: Terminal Measure",			 	0.01, 	2, "SPREADS",	"LOGNORMAL", 	"TERMINAL",	new double[] { 0.04, 0.049, 0.062, 0.049, 0.044, 0.031 }, 4},
@@ -375,7 +375,8 @@ public class ModelFromSpreadTest extends info.quantlab.debug.Time{
 		int timeIndexOfLowestSpread = -1;
 		int liborIndexOfLowestSpread = -1;
 		int pathIndexOfLowestSpread = -1;
-		System.out.println("LIBOR -index/-time | Minimum Spread      time      path");
+		int[] numberOfNegativePaths = new int[] {0, 0, 0, 0, 0};
+		System.out.println("LIBOR -index/-time | Minimum Spread      time      path      number of negative paths");
 		DefaultableLIBORMarketModel defModel = (DefaultableLIBORMarketModel)model.getModel();
 		for(int libor = 0; libor < model.getNumberOfLibors(); libor++) {
 			double minAtLIBOR = Double.POSITIVE_INFINITY;
@@ -398,7 +399,8 @@ public class ModelFromSpreadTest extends info.quantlab.debug.Time{
 			System.out.printf("LIBOR %2d    %4.2f   | ", libor, liborTime);
 			System.out.printf("%11s        ", formatterDeviation.format(minAtLIBOR));
 			System.out.printf("%4d        ", timeAtLIBOR);
-			System.out.printf("%6d %n", pathAtLIBOR);
+			System.out.printf("%6d                ", pathAtLIBOR);
+			System.out.printf("%6d                ", numberOfNegativePaths[libor]);
 			// Adjust General smallest value
 			if(minAtLIBOR < minimum) {
 				minimum = minAtLIBOR;
@@ -531,7 +533,7 @@ public class ModelFromSpreadTest extends info.quantlab.debug.Time{
 		properties.put("numberOfExtraFactors", numberOfExtraFactors);
 		properties.put("initialRatesDefaultable", initialRatesDefaultable);
 		properties.put("simulationModel", simulationProduct);
-		properties.put("stateSpaceOfSpread", "LOGNORMAL");
+		properties.put("stateSpaceOfSpread", scheme.equals("EULER_FUNCTIONAL")? "LOGNORMAL" : "NORMAL");
 		properties.put("freeParamsSeed", 2000);
 		properties.put("freeParamsRange", 1.0);
 		// properties.put("freeParamsGenerator", freeParamsGenerator); // None needed because the default one is great! lol...

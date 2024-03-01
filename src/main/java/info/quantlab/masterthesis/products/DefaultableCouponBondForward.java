@@ -103,8 +103,11 @@ public class DefaultableCouponBondForward extends LoanProduct {
             switch(getValuationPerspective()) {
                 case CREDITOR:
                     coupon = coupon.mult(survivalProb.apply(process, _tenor.getTime(i), _creditorIndex));
+                    coupon = coupon.div(numeraire.apply(process, _tenor.getTime(i), _debtorIndex));
+                    break;
                 case MARKET_IMPLIED:
                 case DEBTOR:
+                    coupon = coupon.mult(survivalProb.apply(process, _tenor.getTime(0), _creditorIndex));
                     coupon = coupon.div(numeraire.apply(process, _tenor.getTime(i), _debtorIndex));
                     break;
             }
